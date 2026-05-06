@@ -62,7 +62,8 @@ def get_daily_files(days: int = 30) -> dict[str, list[str]]:
     """从 git log 提取最近 N 天每天新增/修改的 .py 文件"""
     try:
         out = subprocess.check_output(
-            ["git", "log", "--format=@@%ad", "--date=short", "--name-only",
+            ["git", "-c", "core.quotepath=false", "log",
+             "--format=@@%ad", "--date=short", "--name-only",
              f"--since={days} days ago"],
             cwd=ROOT, encoding="utf-8",
         )
@@ -73,8 +74,10 @@ def get_daily_files(days: int = 30) -> dict[str, list[str]]:
     for line in out.strip().splitlines():
         if line.startswith("@@"):
             current_day = line[2:].strip()
-        elif line.endswith(".py") and not line.startswith("temp"):
-            day_files[current_day].add(Path(line).name)
+        elif line.endswith(".py"):
+            clean = line.strip('"')
+            if not clean.startswith("temp"):
+                day_files[current_day].add(Path(clean).name)
     return {k: sorted(v) for k, v in day_files.items()}
 
 
