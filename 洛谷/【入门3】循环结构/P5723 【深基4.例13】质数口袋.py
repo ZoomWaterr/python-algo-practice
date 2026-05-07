@@ -9,5 +9,17 @@ def is_prime(n):
     
     return True
 
+sum_p = 0   #质数和
+count = 0   #质数的个数
+num = 2     #从2开始判断
+
 while True:
-    
+    if is_prime(num):
+        if sum_p + num <= L:
+            sum_p += num
+            count += 1
+            print(num)
+        else:
+            break
+    num += 1
+print(count)
