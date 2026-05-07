@@ -7,5 +7,3 @@ for i in range(1,n+1):  #控制层数
         print(f"{count:02d}",end="")
         count += 1
     print()
-
-    
