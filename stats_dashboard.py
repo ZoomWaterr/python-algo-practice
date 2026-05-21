@@ -1,6 +1,6 @@
 """
-刷题数据可视化面板 v4
-- cal-heatmap (wa0x6e/cal-heatmap) — GitHub 官方同款热力图引擎
+刷题数据可视化面板 v5
+- 纯手写 GitHub 像素级热力图，无需第三方依赖
 - 清新暖色主题
 """
 import json
@@ -10,12 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 
 ROOT = Path(__file__).parent
-
-TRACK = {
-    "洛谷": "洛谷",
-    "C语言网": "C语言网",
-    "蓝桥云课": "蓝桥云课",
-}
+TRACK = {"洛谷": "洛谷", "C语言网": "C语言网", "蓝桥云课": "蓝桥云课"}
 ROOT_EXCLUDE = {"stats.py", "generate_readme.py", "stats_dashboard.py"}
 EXCLUDE_KEYWORDS = ["temp", "__pycache__"]
 
@@ -37,8 +32,7 @@ def count_problems() -> dict:
         path = ROOT / folder
         if not path.exists():
             continue
-        cats = {}
-        total = 0
+        cats, total = {}, 0
         for sub in sorted(path.iterdir()):
             if not sub.is_dir():
                 continue
@@ -52,7 +46,7 @@ def count_problems() -> dict:
     return result
 
 
-def get_git_history(days: int = 365) -> dict:
+def get_git_history(days=365) -> dict:
     try:
         out = subprocess.check_output(
             ["git", "-c", "core.quotepath=false", "log",
@@ -61,33 +55,23 @@ def get_git_history(days: int = 365) -> dict:
             cwd=ROOT, encoding="utf-8")
     except Exception:
         return {}
-
     day_data = defaultdict(lambda: {"commits": 0, "files": set()})
-    current_day = ""
+    cur = ""
     for line in out.strip().splitlines():
-        if not line:
-            continue
+        if not line: continue
         if line.startswith("@@"):
-            current_day = line[2:].strip()
-            day_data[current_day]["commits"] += 1
+            cur = line[2:].strip()
+            day_data[cur]["commits"] += 1
             continue
-        if not line.endswith(".py"):
-            continue
-        clean_path = Path(line.strip('"').strip("'"))
-        fname = clean_path.name
-        if fname in ROOT_EXCLUDE:
-            continue
-        if any(kw in fname.lower() for kw in EXCLUDE_KEYWORDS):
-            continue
-        day_data[current_day]["files"].add(str(clean_path))
-
+        if not line.endswith(".py"): continue
+        fname = Path(line.strip('"').strip("'")).name
+        if fname in ROOT_EXCLUDE: continue
+        if any(kw in fname.lower() for kw in EXCLUDE_KEYWORDS): continue
+        day_data[cur]["files"].add(fname)
     result = {}
     for day, data in day_data.items():
-        result[day] = {
-            "commits": data["commits"],
-            "files": len(data["files"]),
-            "filenames": sorted([Path(f).name for f in data["files"]]),
-        }
+        result[day] = {"commits": data["commits"], "files": len(data["files"]),
+                       "filenames": sorted(data["files"])}
     return result
 
 
@@ -97,57 +81,45 @@ def get_first_commit_date() -> str:
             ["git", "log", "--reverse", "--format=%ad", "--date=short"],
             cwd=ROOT, encoding="utf-8")
         return out.strip().splitlines()[0] if out.strip() else ""
-    except Exception:
+    except:
         return ""
 
 
 def build_html(counts: dict, history: dict) -> str:
-    grand_total = sum(c["_total"] for c in counts.values())
-    updated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    first_commit = get_first_commit_date()
+    grand = sum(c["_total"] for c in counts.values())
+    updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    first = get_first_commit_date()
 
-    # Build heatmap data array for cal-heatmap
-    heatmap_data = []
-    for date_str, info in sorted(history.items()):
-        heatmap_data.append({"date": date_str, "value": info["files"]})
-
-    platforms = []
-    for label, cats in counts.items():
-        platforms.append({
-            "name": label,
-            "total": cats["_total"],
-            "subdirs": {k: v for k, v in cats.items() if k != "_total"},
-        })
+    platforms = [{"name": l, "total": c["_total"],
+                  "subdirs": {k: v for k, v in c.items() if k != "_total"}}
+                 for l, c in counts.items()]
 
     recent_days = sorted(history.items(), reverse=True)[:14]
-    recent = [
-        {"date": d, "commits": h["commits"], "files": h["files"],
-         "filenames": h.get("filenames", [])}
-        for d, h in recent_days
-    ]
+    recent = [{"date": d, "commits": h["commits"], "files": h["files"],
+               "filenames": h["filenames"]} for d, h in recent_days]
     total_commits = sum(h["commits"] for h in history.values())
 
-    # Date range: start from 2 months before first commit, rounded to month start
-    if first_commit:
-        fc = datetime.strptime(first_commit, "%Y-%m-%d")
+    # Heatmap data: map date->files for JS
+    heatmap_data = {date: info["files"] for date, info in history.items()}
+
+    # Range: from 2 months before first commit, Sunday-aligned
+    if first:
+        fc = datetime.strptime(first, "%Y-%m-%d")
     else:
         fc = datetime.now()
-    range_start = (fc.replace(day=1) - timedelta(days=60)).replace(day=1)
-    # Number of months to show (from range_start to now + 1)
-    now = datetime.now()
-    range_months = (now.year - range_start.year) * 12 + (now.month - range_start.month) + 1
-    range_start_js = range_start.strftime("%Y-%m-%d")
+    start = (fc.replace(day=1) - timedelta(days=30))
+    start = start - timedelta(days=start.weekday() + 1)  # align to Monday
+    range_start = start.strftime("%Y-%m-%d")
 
     data_json = json.dumps({
-        "grandTotal": grand_total,
+        "grandTotal": grand,
         "platforms": platforms,
         "recent": recent,
         "totalCommits": total_commits,
-        "firstCommit": first_commit,
-        "updatedAt": updated_at,
+        "firstCommit": first,
+        "updatedAt": updated,
         "heatmapData": heatmap_data,
-        "rangeStart": range_start_js,
-        "rangeMonths": min(range_months, 12),
+        "rangeStart": range_start,
     }, ensure_ascii=False)
 
     return HTML_TEMPLATE.format(data_json=data_json)
@@ -159,35 +131,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>刷题面板 · ZoomWaterr</title>
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.2.4/dist/cal-heatmap.min.js"></script>
-<script>
-const DATA = {data_json};
-document.addEventListener('DOMContentLoaded', function() {{
-const cal = new CalHeatmap();
-cal.paint({{
-  itemSelector: '#cal-heatmap',
-  range: DATA.rangeMonths,
-  domain: {{ type: 'month', gutter: 4, label: {{ text: 'M月', textAlign: 'start', position: 'top' }} }},
-  subDomain: {{ type: 'ghDay', radius: 2, width: 12, height: 12, gutter: 4 }},
-  date: {{ start: new Date(DATA.rangeStart) }},
-  data: {{
-    source: DATA.heatmapData,
-    type: 'json',
-    x: 'date',
-    y: d => d.value,
-  }},
-  scale: {{
-    color: {{
-      type: 'threshold',
-      range: ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127'],
-      domain: [1, 3, 6, 11],
-    }},
-  }},
-  theme: 'light',
-}});
-}});
-</script>
 <style>
   :root {{
     --bg: #faf7f2;
@@ -202,6 +145,11 @@ cal.paint({{
     --orange: #d4a058;
     --shadow: 0 2px 12px rgba(180,160,140,0.10);
     --shadow-lg: 0 4px 24px rgba(180,160,140,0.14);
+    --gh-0: #ebedf0;
+    --gh-1: #c6e48b;
+    --gh-2: #7bc96f;
+    --gh-3: #239a3b;
+    --gh-4: #196127;
   }}
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{
@@ -253,7 +201,45 @@ cal.paint({{
     box-shadow: var(--shadow);
   }}
 
-  #cal-heatmap {{ font-size: 11px; }}
+  /* ── GitHub Pixel-Perfect Heatmap ── */
+  .gh-calendar {{
+    display: inline-block; overflow-x: auto; max-width: 100%;
+  }}
+  .gh-calendar table {{
+    border-collapse: separate; border-spacing: 3px;
+  }}
+  .gh-calendar td {{
+    width: 12px; height: 12px; border-radius: 2px;
+    position: relative;
+  }}
+  .gh-calendar .gh-cell:hover {{ outline: 2px solid rgba(0,0,0,0.3); outline-offset: -1px; }}
+  .gh-calendar .gh-month {{
+    font-size: 11px; color: var(--muted); text-align: left;
+    padding-bottom: 2px; height: 16px; background: none;
+  }}
+  .gh-calendar .gh-day {{
+    font-size: 10px; color: var(--muted); text-align: left;
+    padding-right: 4px; width: 24px; background: none;
+  }}
+  .gh-calendar .gh-cell.l0 {{ background: var(--gh-0); }}
+  .gh-calendar .gh-cell.l1 {{ background: var(--gh-1); }}
+  .gh-calendar .gh-cell.l2 {{ background: var(--gh-2); }}
+  .gh-calendar .gh-cell.l3 {{ background: var(--gh-3); }}
+  .gh-calendar .gh-cell.l4 {{ background: var(--gh-4); }}
+  .gh-calendar .gh-cell[data-tip]:hover::after {{
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 8px); left: 50%;
+    transform: translateX(-50%);
+    background: #3d322b; color: #fff;
+    padding: 5px 10px; border-radius: 6px; font-size: 11px;
+    white-space: nowrap; pointer-events: none; z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }}
+  .gh-legend {{
+    display: flex; align-items: center; gap: 3px; margin-top: 10px;
+    justify-content: flex-end; font-size: 11px; color: var(--muted);
+  }}
+  .gh-legend .dot {{ width: 12px; height: 12px; border-radius: 2px; display: inline-block; }}
 
   .platform-row {{ display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }}
   .platform-row:last-child {{ margin-bottom: 0; }}
@@ -318,7 +304,14 @@ cal.paint({{
 
   <div class="panel">
     <div class="section-title">📅 刷题热力图</div>
-    <div id="cal-heatmap"></div>
+    <div class="gh-calendar" id="gh-calendar"></div>
+    <div class="gh-legend">
+      少
+      <span class="dot l0"></span><span class="dot l1"></span>
+      <span class="dot l2"></span><span class="dot l3"></span>
+      <span class="dot l4"></span>
+      多
+    </div>
   </div>
 
   <div class="panel">
@@ -337,58 +330,132 @@ cal.paint({{
 
 <script>
 (function() {{
-  const DATA = {data_json};
+const DATA = {data_json};
 
-  document.getElementById('cards').innerHTML = `
-    <div class="card"><div class="num">${{DATA.grandTotal}}</div><div class="label">总题数</div></div>
-    ${{DATA.platforms.map(p => `<div class="card"><div class="num">${{p.total}}</div><div class="label">${{p.name}}</div></div>`).join('')}}
-    <div class="card"><div class="num">${{DATA.totalCommits}}</div><div class="label">总提交</div></div>
-  `;
+// ── Stat Cards ──
+document.getElementById('cards').innerHTML = `
+  <div class="card"><div class="num">${{DATA.grandTotal}}</div><div class="label">总题数</div></div>
+  ${{DATA.platforms.map(p => `<div class="card"><div class="num">${{p.total}}</div><div class="label">${{p.name}}</div></div>`).join('')}}
+  <div class="card"><div class="num">${{DATA.totalCommits}}</div><div class="label">总提交</div></div>
+`;
 
-  // Platform bars
-  const maxTotal = Math.max(...DATA.platforms.map(p => p.total), 1);
-  document.getElementById('platforms').innerHTML = DATA.platforms.map((pl, i) => {{
-    const pct = Math.max((pl.total / maxTotal * 100).toFixed(0), 8);
-    const barClass = ['lg', 'cl', 'lq'][i] || '';
-    const subHtml = Object.entries(pl.subdirs).length > 0
-      ? `<div class="subdirs">${{Object.entries(pl.subdirs).map(([k,v]) =>
-          `<span class="subdir-tag">${{k}}: ${{v}}题</span>`).join('')}}</div>` : '';
-    return `<div class="platform-row">
-      <span class="platform-name">${{pl.name}}</span>
-      <div class="platform-bar-wrap">
-        <div class="platform-bar ${{barClass}}" style="width:${{pct}}%">${{pl.total}} 题</div>
-      </div>
-    </div>${{subHtml}}`;
-  }}).join('');
+// ── GitHub Pixel-Perfect Heatmap ──
+function level(files) {{
+  if (files === 0) return 0;
+  if (files <= 2) return 1;
+  if (files <= 5) return 2;
+  if (files <= 10) return 3;
+  return 4;
+}}
 
-  // Activity
-  const recent = DATA.recent;
-  if (recent.length === 0) {{
-    document.getElementById('activity').innerHTML = '<p style="color:var(--muted);font-size:13px">还没有活动记录</p>';
-  }} else {{
-    document.getElementById('activity').innerHTML = recent.map(item => {{
-      const dotClass = item.files >= 8 ? 'big' : item.files >= 4 ? 'medium' : 'small';
-      const fnames = (item.filenames || []).slice(0, 4).map(f =>
-        `<span class="act-fname">${{f}}</span>`).join('');
-      const more = (item.filenames || []).length > 4
-        ? `<span class="act-fname">+${{item.filenames.length - 4}} more</span>` : '';
-      return `<div class="activity-item">
-        <span class="act-date">${{item.date.slice(5)}}</span>
-        <span class="act-dot ${{dotClass}}"></span>
-        <span class="act-files">
-          <span class="act-count">+${{item.files}} 题</span> · ${{item.commits}} 次提交
-          <br>${{fnames}}${{more}}
-        </span>
-      </div>`;
-    }}).join('');
+function buildHeatmap() {{
+  const container = document.getElementById('gh-calendar');
+  const data = DATA.heatmapData;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Start date: Monday of the week containing rangeStart
+  const start = new Date(DATA.rangeStart + 'T00:00:00');
+  start.setDate(start.getDate() - start.getDay() + 1); // Monday
+
+  // End date: today
+  const totalDays = Math.ceil((today - start) / 86400000) + 1;
+  const numWeeks = Math.ceil(totalDays / 7);
+
+  // Day labels (Mon, Wed, Fri)
+  const dayNames = ['Mon', '', 'Wed', '', 'Fri', '', ''];
+
+  let html = '<table><tbody>';
+
+  // Month label row
+  html += '<tr>';
+  html += '<td class="gh-month"></td>';
+  let lastMonth = -1;
+  for (let w = 0; w < numWeeks; w++) {{
+    const d = new Date(start);
+    d.setDate(d.getDate() + w * 7);
+    if (d.getMonth() !== lastMonth && d.getDate() <= 7) {{
+      html += `<td class="gh-month">${{d.getMonth()+1}}月</td>`;
+      lastMonth = d.getMonth();
+    }} else {{
+      html += '<td class="gh-month"></td>';
+    }}
   }}
+  html += '</tr>';
 
-  document.getElementById('footer').innerHTML = `
-    自动生成 · ${{DATA.updatedAt}}
-    ${{DATA.firstCommit ? ' · 始于 ' + DATA.firstCommit : ''}}
-    · <a href="https://github.com/ZoomWaterr/python-algo-practice">GitHub</a>
-    · <a href="#" onclick="navigator.clipboard.writeText(location.href);this.textContent='已复制!';setTimeout(()=>this.textContent='复制链接',1500);return false">复制链接</a>
-  `;
+  // 7 rows (Mon-Sun)
+  for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {{
+    html += '<tr>';
+    html += `<td class="gh-day">${{dayNames[dayOfWeek]}}</td>`;
+    for (let w = 0; w < numWeeks; w++) {{
+      const d = new Date(start);
+      d.setDate(d.getDate() + w * 7 + dayOfWeek);
+      const dateStr = d.toISOString().slice(0, 10);
+      const isFuture = d > today;
+
+      if (isFuture) {{
+        html += '<td></td>';
+      }} else {{
+        const files = data[dateStr] || 0;
+        const lvl = level(files);
+        let tip = dateStr;
+        if (files > 0) {{
+          tip = `${{dateStr}}: ${{files}} 题`;
+        }} else {{
+          tip = `${{dateStr}}: 无记录`;
+        }}
+        html += `<td class="gh-cell l${{lvl}}" data-tip="${{tip}}"></td>`;
+      }}
+    }}
+    html += '</tr>';
+  }}
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}}
+buildHeatmap();
+
+// ── Platform Bars ──
+const maxTotal = Math.max(...DATA.platforms.map(p => p.total), 1);
+document.getElementById('platforms').innerHTML = DATA.platforms.map((pl, i) => {{
+  const pct = Math.max((pl.total / maxTotal * 100).toFixed(0), 8);
+  const cls = ['lg', 'cl', 'lq'][i] || '';
+  const sub = Object.entries(pl.subdirs).length > 0
+    ? `<div class="subdirs">${{Object.entries(pl.subdirs).map(([k,v]) =>
+        `<span class="subdir-tag">${{k}}: ${{v}}题</span>`).join('')}}</div>` : '';
+  return `<div class="platform-row">
+    <span class="platform-name">${{pl.name}}</span>
+    <div class="platform-bar-wrap"><div class="platform-bar ${{cls}}" style="width:${{pct}}%">${{pl.total}} 题</div></div>
+  </div>${{sub}}`;
+}}).join('');
+
+// ── Recent Activity ──
+const recent = DATA.recent;
+if (recent.length === 0) {{
+  document.getElementById('activity').innerHTML = '<p style="color:var(--muted);font-size:13px">还没有活动</p>';
+}} else {{
+  document.getElementById('activity').innerHTML = recent.map(item => {{
+    const dotCls = item.files >= 8 ? 'big' : item.files >= 4 ? 'medium' : 'small';
+    const names = (item.filenames || []).slice(0, 4).map(f => `<span class="act-fname">${{f}}</span>`).join('');
+    const more = (item.filenames || []).length > 4
+      ? `<span class="act-fname">+${{item.filenames.length-4}} more</span>` : '';
+    return `<div class="activity-item">
+      <span class="act-date">${{item.date.slice(5)}}</span>
+      <span class="act-dot ${{dotCls}}"></span>
+      <span class="act-files">
+        <span class="act-count">+${{item.files}} 题</span> · ${{item.commits}} 次提交
+        <br>${{names}}${{more}}
+      </span>
+    </div>`;
+  }}).join('');
+}}
+
+// ── Footer ──
+document.getElementById('footer').innerHTML = `
+  自动生成 · ${{DATA.updatedAt}}
+  ${{DATA.firstCommit ? ' · 始于 ' + DATA.firstCommit : ''}}
+  · <a href="https://github.com/ZoomWaterr/python-algo-practice">GitHub</a>
+  · <a href="#" onclick="navigator.clipboard.writeText(location.href);this.textContent='已复制!';setTimeout(()=>this.textContent='复制链接',1500);return false">复制链接</a>
+`;
+
 }})();
 </script>
 </body>
@@ -402,8 +469,8 @@ def main():
     out = ROOT / "index.html"
     out.write_text(html, encoding="utf-8")
     grand = sum(c["_total"] for c in counts.values())
-    print(f"[OK] Dashboard: {out}")
-    print(f"     Total: {grand} problems | Active days: {len(history)}")
+    print(f"[OK] {out}")
+    print(f"     Total: {grand} | Active days: {len(history)}")
 
 
 if __name__ == "__main__":
