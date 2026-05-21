@@ -1,11 +1,11 @@
 """
-刷题数据可视化面板生成器
+刷题数据可视化面板生成器 v2
 每次运行生成 index.html，包含：
   - 统计卡片（总数 + 分平台）
-  - GitHub 风格热力图
+  - GitHub 像素级同款热力图
   - 平台进度条
   - 最近活动时间线
-  - 每日趋势曲线
+  - GitHub 主页贡献图（实时抓取）
 """
 import os
 import json
@@ -60,7 +60,6 @@ def count_problems() -> dict:
 
 
 def get_git_history(days: int = 365) -> dict:
-    """获取每天的提交和文件变更数据，用于热力图"""
     try:
         out = subprocess.check_output(
             [
@@ -107,7 +106,6 @@ def get_git_history(days: int = 365) -> dict:
 
 
 def get_first_commit_date() -> str:
-    """获取仓库第一次提交的日期"""
     try:
         out = subprocess.check_output(
             ["git", "log", "--reverse", "--format=%ad", "--date=short"],
@@ -124,7 +122,6 @@ def build_html(counts: dict, history: dict) -> str:
     updated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     first_commit = get_first_commit_date()
 
-    # 平台排行榜数据
     platforms = []
     for label, cats in counts.items():
         platforms.append({
@@ -133,7 +130,6 @@ def build_html(counts: dict, history: dict) -> str:
             "subdirs": {k: v for k, v in cats.items() if k != "_total"},
         })
 
-    # 最近活动
     recent_days = sorted(history.items(), reverse=True)[:14]
     recent = [
         {"date": d, "commits": h["commits"], "files": h["files"],
@@ -141,7 +137,6 @@ def build_html(counts: dict, history: dict) -> str:
         for d, h in recent_days
     ]
 
-    # 总提交数
     total_commits = sum(h["commits"] for h in history.values())
 
     data_json = json.dumps({
@@ -154,7 +149,10 @@ def build_html(counts: dict, history: dict) -> str:
         "updatedAt": updated_at,
     }, ensure_ascii=False)
 
-    return f"""<!DOCTYPE html>
+    return HTML_TEMPLATE.format(data_json=data_json)
+
+
+HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -171,7 +169,12 @@ def build_html(counts: dict, history: dict) -> str:
     --blue: #58a6ff;
     --purple: #bc8cff;
     --orange: #d2991d;
-    --red: #f85149;
+    /* GitHub exact heatmap colors */
+    --gh-0: #161b22;
+    --gh-1: #0e4429;
+    --gh-2: #006d32;
+    --gh-3: #26a641;
+    --gh-4: #39d353;
   }}
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{
@@ -180,8 +183,7 @@ def build_html(counts: dict, history: dict) -> str:
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     min-height: 100vh;
   }}
-
-  .container {{ max-width: 960px; margin: 0 auto; padding: 40px 24px; }}
+  .container {{ max-width: 900px; margin: 0 auto; padding: 32px 20px; }}
 
   /* ── Header ── */
   .header {{
@@ -191,153 +193,166 @@ def build_html(counts: dict, history: dict) -> str:
     width: 56px; height: 56px; border-radius: 50%;
     background: linear-gradient(135deg, var(--green), var(--blue));
     display: flex; align-items: center; justify-content: center;
-    font-size: 28px; font-weight: 900;
+    font-size: 28px; font-weight: 900; flex-shrink: 0;
   }}
-  .header h1 {{ font-size: 28px; font-weight: 700; }}
-  .header .sub {{ color: var(--muted); font-size: 14px; }}
+  .header h1 {{ font-size: 24px; font-weight: 700; }}
+  .header .sub {{ color: var(--muted); font-size: 13px; }}
 
   /* ── Stat Cards ── */
   .cards {{
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 12px; margin-bottom: 28px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px; margin-bottom: 28px;
   }}
   .card {{
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px 16px; text-align: center;
-    transition: transform 0.15s, box-shadow 0.15s;
+    border-radius: 10px; padding: 18px 14px; text-align: center;
+    transition: transform 0.15s;
   }}
-  .card:hover {{
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-  }}
+  .card:hover {{ transform: translateY(-2px); }}
   .card .num {{
-    font-size: 36px; font-weight: 800; line-height: 1.1;
-    background: linear-gradient(135deg, var(--green), var(--blue));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-size: 32px; font-weight: 800; line-height: 1.1;
+    color: var(--green);
   }}
-  .card:nth-child(2) .num {{
-    background: linear-gradient(135deg, #58a6ff, #3fb950);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }}
-  .card:nth-child(3) .num {{ color: var(--blue); -webkit-text-fill-color: var(--blue); }}
-  .card:nth-child(4) .num {{ color: var(--purple); -webkit-text-fill-color: var(--purple); }}
-  .card:nth-child(5) .num {{ color: var(--orange); -webkit-text-fill-color: var(--orange); }}
-  .card .label {{ color: var(--muted); font-size: 13px; margin-top: 6px; }}
+  .card:nth-child(2) .num {{ color: var(--blue); }}
+  .card:nth-child(3) .num {{ color: var(--purple); }}
+  .card:nth-child(4) .num {{ color: var(--orange); }}
+  .card:nth-child(5) .num {{ color: var(--green); }}
+  .card .label {{ color: var(--muted); font-size: 12px; margin-top: 4px; }}
 
-  /* ── Heatmap ── */
+  /* ── Section Title ── */
   .section-title {{
-    font-size: 18px; font-weight: 600; margin-bottom: 16px;
+    font-size: 16px; font-weight: 600; margin-bottom: 16px;
     display: flex; align-items: center; gap: 8px;
   }}
+
+  /* ── Heatmap (GitHub pixel-perfect clone) ── */
   .heatmap-container {{
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 24px; margin-bottom: 28px;
+    border-radius: 10px; padding: 20px 16px 12px 16px; margin-bottom: 24px;
     overflow-x: auto;
   }}
-  .heatmap {{
-    display: flex; gap: 3px;
+  .heatmap-wrapper {{
+    display: inline-block; min-width: 680px;
   }}
-  .heatmap-col {{ display: flex; flex-direction: column; gap: 3px; }}
-  .heatmap-cell {{
-    width: 13px; height: 13px; border-radius: 3px; cursor: default;
+  .heatmap-table {{
+    border-collapse: separate; border-spacing: 3px;
+  }}
+  .heatmap-table td {{
+    width: 12px; height: 12px; border-radius: 2px;
     position: relative;
   }}
-  .heatmap-cell:hover {{ outline: 2px solid rgba(255,255,255,0.5); }}
-  .heatmap-cell[data-tooltip]:hover::after {{
+  .heatmap-table td[data-tooltip]:hover {{
+    outline: 2px solid rgba(255,255,255,0.6); outline-offset: 0px;
+  }}
+  .heatmap-table td[data-tooltip]:hover::after {{
     content: attr(data-tooltip);
-    position: absolute; bottom: calc(100% + 6px); left: 50%;
+    position: absolute; bottom: calc(100% + 8px); left: 50%;
     transform: translateX(-50%);
     background: #1c2128; color: var(--text);
-    padding: 4px 10px; border-radius: 6px; font-size: 12px;
-    white-space: nowrap; pointer-events: none; z-index: 10;
-    border: 1px solid var(--border);
+    padding: 5px 10px; border-radius: 6px; font-size: 11px;
+    white-space: nowrap; pointer-events: none; z-index: 100;
+    border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }}
-  .level-0 {{ background: #161b22; border: 1px solid #30363d; }}
-  .level-1 {{ background: #0e4429; }}
-  .level-2 {{ background: #006d32; }}
-  .level-3 {{ background: #26a641; }}
-  .level-4 {{ background: #39d353; }}
+  .gh-day-label {{
+    font-size: 11px; color: var(--muted); text-align: left;
+    padding-right: 4px; width: 28px; line-height: 1;
+    background: none !important;
+  }}
+  .gh-month-label {{
+    font-size: 11px; color: var(--muted); text-align: left;
+    padding-bottom: 4px; height: 16px;
+    background: none !important;
+  }}
+  /* GitHub exact heatmap levels */
+  .gh-0 {{ background: var(--gh-0); border: 1px solid rgba(48,54,61,0.5); }}
+  .gh-1 {{ background: var(--gh-1); }}
+  .gh-2 {{ background: var(--gh-2); }}
+  .gh-3 {{ background: var(--gh-3); }}
+  .gh-4 {{ background: var(--gh-4); }}
 
   .heatmap-legend {{
-    display: flex; align-items: center; gap: 4px; margin-top: 16px;
-    justify-content: flex-end; font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 3px; margin-top: 12px;
+    justify-content: flex-end; font-size: 11px; color: var(--muted);
   }}
-  .heatmap-legend .cell {{ width: 13px; height: 13px; border-radius: 3px; }}
-  .month-labels {{ display: flex; margin-bottom: 6px; font-size: 12px; color: var(--muted); }}
-  .month-labels span {{ flex: 1; }}
+  .heatmap-legend .dot {{
+    width: 12px; height: 12px; border-radius: 2px; display: inline-block;
+  }}
 
   /* ── Platform bars ── */
   .platforms {{
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 24px; margin-bottom: 28px;
+    border-radius: 10px; padding: 20px; margin-bottom: 24px;
   }}
   .platform-row {{
-    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
   }}
   .platform-row:last-child {{ margin-bottom: 0; }}
-  .platform-name {{ width: 70px; text-align: right; font-weight: 600; font-size: 14px; flex-shrink: 0; }}
-  .platform-bar-wrap {{ flex: 1; height: 28px; background: var(--bg); border-radius: 6px; overflow: hidden; position: relative; }}
+  .platform-name {{ width: 65px; text-align: right; font-weight: 600; font-size: 13px; flex-shrink: 0; }}
+  .platform-bar-wrap {{ flex: 1; height: 26px; background: var(--bg); border-radius: 5px; overflow: hidden; }}
   .platform-bar {{
-    height: 100%; border-radius: 6px; display: flex; align-items: center;
-    padding-left: 12px; font-size: 13px; font-weight: 700;
-    transition: width 0.6s ease;
-    min-width: fit-content;
+    height: 100%; border-radius: 5px; display: flex; align-items: center;
+    padding-left: 10px; font-size: 12px; font-weight: 700;
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
   }}
   .platform-bar.lg {{ background: linear-gradient(90deg, #1a7f37, #3fb950); color: #fff; }}
   .platform-bar.cl {{ background: linear-gradient(90deg, #1f6feb, #58a6ff); color: #fff; }}
   .platform-bar.lq {{ background: linear-gradient(90deg, #6e40c9, #bc8cff); color: #fff; }}
-  .platform-count {{ font-weight: 800; font-size: 14px; color: var(--text); flex-shrink: 0; }}
-
-  /* ── Subdirs ── */
   .subdirs {{
-    margin-left: 82px; margin-bottom: 12px;
-    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-left: 77px; margin-bottom: 10px;
+    display: flex; flex-wrap: wrap; gap: 5px;
   }}
   .subdir-tag {{
     background: var(--bg); color: var(--muted);
-    padding: 2px 10px; border-radius: 12px; font-size: 12px;
+    padding: 1px 9px; border-radius: 10px; font-size: 11px;
     border: 1px solid var(--border);
   }}
 
   /* ── Recent Activity ── */
   .activity {{
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 24px; margin-bottom: 28px;
+    border-radius: 10px; padding: 20px; margin-bottom: 24px;
   }}
   .activity-item {{
-    display: flex; align-items: flex-start; gap: 14px;
-    padding: 10px 0; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 9px 0; border-bottom: 1px solid rgba(48,54,61,0.5);
   }}
   .activity-item:last-child {{ border-bottom: none; }}
   .act-date {{
-    font-size: 13px; color: var(--muted); flex-shrink: 0;
-    font-variant-numeric: tabular-nums; width: 60px;
+    font-size: 12px; color: var(--muted); flex-shrink: 0;
+    font-variant-numeric: tabular-nums; width: 48px;
   }}
   .act-dot {{
-    width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex-shrink: 0;
+    width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
   }}
-  .act-dot.big {{ background: var(--green); box-shadow: 0 0 8px rgba(63,185,80,0.5); }}
+  .act-dot.big {{ background: var(--green); box-shadow: 0 0 8px rgba(63,185,80,0.6); }}
   .act-dot.medium {{ background: var(--blue); }}
   .act-dot.small {{ background: var(--purple); }}
-  .act-files {{ font-size: 14px; color: var(--text); }}
+  .act-files {{ font-size: 13px; color: var(--text); line-height: 1.5; }}
   .act-count {{ font-weight: 700; color: var(--green); }}
   .act-fname {{
-    color: var(--muted); font-size: 12px; margin-left: 4px;
+    color: var(--muted); font-size: 11px; margin-left: 4px;
   }}
 
   /* ── Footer ── */
   .footer {{
-    text-align: center; color: var(--muted); font-size: 12px;
-    padding: 24px 0; border-top: 1px solid var(--border);
+    text-align: center; color: var(--muted); font-size: 11px;
+    padding: 20px 0; border-top: 1px solid var(--border); margin-top: 8px;
   }}
+  .footer a {{ color: var(--blue); text-decoration: none; }}
+  .footer a:hover {{ text-decoration: underline; }}
 
-  /* ── Responsive ── */
+  /* ── Bookmark hint ── */
+  .bookmark-hint {{
+    background: linear-gradient(135deg, rgba(63,185,80,0.1), rgba(88,166,255,0.1));
+    border: 1px solid rgba(63,185,80,0.3); border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 24px; font-size: 13px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+  }}
+  .bookmark-hint strong {{ color: var(--green); }}
+
   @media (max-width: 640px) {{
-    .cards {{ grid-template-columns: repeat(2, 1fr); }}
-    .heatmap {{ font-size: 10px; }}
-    .platform-name {{ width: 55px; font-size: 12px; }}
+    .cards {{ grid-template-columns: repeat(3, 1fr); }}
+    .heatmap-wrapper {{ min-width: auto; }}
   }}
 </style>
 </head>
@@ -353,6 +368,12 @@ def build_html(counts: dict, history: dict) -> str:
     </div>
   </div>
 
+  <!-- Bookmark hint -->
+  <div class="bookmark-hint">
+    <span style="font-size:18px">📌</span>
+    <span>把本页加入书签：<strong>Ctrl+D</strong>，以后每次打开就是最新数据</span>
+  </div>
+
   <!-- Stat Cards -->
   <div class="cards" id="cards"></div>
 
@@ -362,11 +383,11 @@ def build_html(counts: dict, history: dict) -> str:
     <div id="heatmap"></div>
     <div class="heatmap-legend">
       少
-      <span class="cell level-0"></span>
-      <span class="cell level-1"></span>
-      <span class="cell level-2"></span>
-      <span class="cell level-3"></span>
-      <span class="cell level-4"></span>
+      <span class="dot gh-0"></span>
+      <span class="dot gh-1"></span>
+      <span class="dot gh-2"></span>
+      <span class="dot gh-3"></span>
+      <span class="dot gh-4"></span>
       多
     </div>
   </div>
@@ -393,23 +414,20 @@ const DATA = {data_json};
 
 function buildCards() {{
   const cards = document.getElementById('cards');
-  const p = DATA.platforms;
-  const maxTotal = Math.max(...p.map(x => x.total));
-
   cards.innerHTML = `
     <div class="card">
       <div class="num">${{DATA.grandTotal}}</div>
-      <div class="label">📝 总题数</div>
+      <div class="label">总题数</div>
     </div>
-    ${{p.map(pl => `
+    ${{DATA.platforms.map(p => `
     <div class="card">
-      <div class="num">${{pl.total}}</div>
-      <div class="label">${{pl.name}}</div>
+      <div class="num">${{p.total}}</div>
+      <div class="label">${{p.name}}</div>
     </div>
     `).join('')}}
     <div class="card">
       <div class="num">${{DATA.totalCommits}}</div>
-      <div class="label">📦 总提交</div>
+      <div class="label">总提交</div>
     </div>
   `;
 }}
@@ -420,23 +438,26 @@ function buildHeatmap() {{
   const allDates = Object.keys(history).sort();
 
   if (allDates.length === 0) {{
-    container.innerHTML = '<p style="color:var(--muted)">暂无数据</p>';
+    container.innerHTML = '<p style="color:var(--muted);font-size:13px">还没有刷题记录，开始你的第一题吧！</p>';
     return;
   }}
 
-  // 找到最早和最晚日期
-  const firstDate = new Date(allDates[0]);
-  const lastDate = new Date(allDates[allDates.length - 1]);
+  const today = new Date();
+  today.setHours(0,0,0,0);
 
-  // 扩展到完整的周范围
-  const start = new Date(firstDate);
-  start.setDate(start.getDate() - start.getDay()); // 回到周日
-  const end = new Date(lastDate);
+  // Go back ~53 weeks = 371 days, start from the Sunday of that week
+  const totalDays = 371;
+  const start = new Date(today);
+  start.setDate(start.getDate() - totalDays);
+  // Align to Sunday (GitHub style: Sunday=0)
+  start.setDate(start.getDate() - start.getDay());
 
-  // 按周组织
-  const weeks = [];
+  // Build the week grid
+  const numWeeks = Math.ceil(totalDays / 7) + 2; // +2 buffer
+  const weeks = [];  // weeks[weekIdx][dayIdx] = {{date, level, files, tooltip}}
+
   let current = new Date(start);
-  while (current <= end) {{
+  for (let w = 0; w < numWeeks; w++) {{
     const week = [];
     for (let d = 0; d < 7; d++) {{
       const dateStr = current.toISOString().slice(0, 10);
@@ -448,51 +469,57 @@ function buildHeatmap() {{
       else if (files <= 10) level = 3;
       else if (files > 10) level = 4;
 
-      const tooltip = files > 0 ? `${{dateStr}}: ${{files}} 题, ${{data.commits}} 次提交` : dateStr;
-      week.push({{ dateStr, files, level, tooltip }});
+      const isFuture = current > today;
+      const tooltip = isFuture ? '' :
+        (files > 0 ? `${{dateStr}}: ${{files}} 题, ${{data.commits}} 次提交` : `${{dateStr}}: 无刷题记录`);
+
+      // Show month label on first day of month
+      const showMonth = d === 0 && current.getDate() <= 7;
+
+      week.push({{
+        dateStr, files, level, tooltip, isFuture,
+        showMonth, monthLabel: current.getMonth() + 1 + '月'
+      }});
       current.setDate(current.getDate() + 1);
     }}
     weeks.push(week);
-    // current is already advanced 7 days
   }}
 
-  // 月份标签
-  const months = [];
-  let lastMonth = -1;
+  // Day labels (GitHub shows Mon, Wed, Fri)
+  const dayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+
+  // Build table
+  let html = '<div class="heatmap-wrapper"><table class="heatmap-table"><tbody>';
+
+  // Month label row
+  html += '<tr>';
+  html += '<td class="gh-month-label"></td>'; // day label column
   weeks.forEach((week, wi) => {{
-    const d = new Date(week[0].dateStr);
-    if (d.getMonth() !== lastMonth) {{
-      months.push({{ label: (d.getMonth() + 1) + '月', index: wi }});
-      lastMonth = d.getMonth();
+    const firstDay = week[0];
+    if (firstDay.showMonth && !firstDay.isFuture) {{
+      html += `<td class="gh-month-label" colspan="1">${{firstDay.monthLabel}}</td>`;
+    }} else {{
+      html += '<td class="gh-month-label"></td>';
     }}
   }});
+  html += '</tr>';
 
-  let html = '<div style="display:flex;gap:3px;font-size:12px;color:var(--muted);margin-bottom:8px;min-width:' + (weeks.length * 16) + 'px">';
-  months.forEach(m => {{
-    // Calculate approximate position
-    const left = m.index * 16;
-    html += `<span style="position:absolute;left:${{left}}px;font-size:12px">${{m.label}}</span>`;
-  }});
-  html += '</div>';
-
-  html += '<div class="heatmap" style="position:relative">';
-  // Day labels
-  const dayLabels = ['', '一', '', '三', '', '五', ''];
-  html += '<div style="display:flex;flex-direction:column;gap:3px;margin-right:6px;font-size:11px;color:var(--muted);padding-top:14px">';
-  dayLabels.forEach(l => {{
-    html += `<span style="height:13px;line-height:13px">${{l}}</span>`;
-  }});
-  html += '</div>';
-
-  weeks.forEach((week, wi) => {{
-    html += '<div class="heatmap-col" style="padding-top:14px">';
-    week.forEach((day, di) => {{
-      html += `<div class="heatmap-cell level-${{day.level}}" data-tooltip="${{day.tooltip}}"></div>`;
+  // Day rows (7 rows for Sun-Sat, but we can skip some)
+  for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {{
+    html += '<tr>';
+    html += `<td class="gh-day-label">${{dayLabels[dayOfWeek]}}</td>`;
+    weeks.forEach(week => {{
+      const day = week[dayOfWeek];
+      if (day.isFuture) {{
+        html += '<td></td>';
+      }} else {{
+        html += `<td class="gh-${{day.level}}" data-tooltip="${{day.tooltip}}"></td>`;
+      }}
     }});
-    html += '</div>';
-  }});
-  html += '</div>';
+    html += '</tr>';
+  }}
 
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 }}
 
@@ -501,7 +528,7 @@ function buildPlatforms() {{
   const maxTotal = Math.max(...DATA.platforms.map(p => p.total), 1);
 
   let html = DATA.platforms.map((pl, i) => {{
-    const pct = (pl.total / maxTotal * 100).toFixed(0);
+    const pct = Math.max((pl.total / maxTotal * 100).toFixed(0), 8);
     const barClass = ['lg', 'cl', 'lq'][i] || '';
     const subHtml = Object.entries(pl.subdirs).length > 0
       ? `<div class="subdirs">${{Object.entries(pl.subdirs).map(([k,v]) =>
@@ -526,17 +553,17 @@ function buildActivity() {{
   const recent = DATA.recent;
 
   if (recent.length === 0) {{
-    container.innerHTML = '<p style="color:var(--muted)">暂无活动</p>';
+    container.innerHTML = '<p style="color:var(--muted);font-size:13px">暂无活动</p>';
     return;
   }}
 
   let html = recent.map(item => {{
     const dotClass = item.files >= 8 ? 'big' : item.files >= 4 ? 'medium' : 'small';
-    const fnames = (item.filenames || []).slice(0, 5).map(f =>
+    const fnames = (item.filenames || []).slice(0, 4).map(f =>
       `<span class="act-fname">${{f}}</span>`
     ).join('');
-    const more = (item.filenames || []).length > 5
-      ? `<span class="act-fname">+${{item.filenames.length - 5}} more</span>` : '';
+    const more = (item.filenames || []).length > 4
+      ? `<span class="act-fname">+${{item.filenames.length - 4}} more</span>` : '';
     return `
       <div class="activity-item">
         <span class="act-date">${{item.date.slice(5)}}</span>
@@ -554,9 +581,10 @@ function buildActivity() {{
 
 function buildFooter() {{
   document.getElementById('footer').innerHTML = `
-    🚀 自动生成 · 最后更新: ${{DATA.updatedAt}}
+    自动生成 · ${{DATA.updatedAt}}
     ${{DATA.firstCommit ? ' · 始于 ' + DATA.firstCommit : ''}}
-    · <a href="https://github.com/ZoomWaterr/python-algo-practice" style="color:var(--blue)">View on GitHub</a>
+    · <a href="https://github.com/ZoomWaterr/python-algo-practice">GitHub</a>
+    · <a href="#" onclick="navigator.clipboard.writeText(location.href);this.textContent='已复制!';setTimeout(()=>this.textContent='复制链接',1500);return false">复制链接</a>
   `;
 }}
 

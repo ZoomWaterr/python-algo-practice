@@ -2,6 +2,8 @@
 
 算法刷题记录，Python 解法存档。
 
+> 📊 **[实时刷题面板](https://zoomwaterr.github.io/python-algo-practice/)** — 热力图、平台分布、最近活动，每次 push 自动更新
+
 <!-- stats -->
 | 平台 | 题数 |
 |------|------|
