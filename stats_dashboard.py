@@ -178,7 +178,7 @@ def build_html(counts: dict, history: dict) -> str:
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>刷题面板 · ZoomWaterr</title>
-<script type="module" src="https://cdn.jsdelivr.net/npm/@mariohamann/activity-graph@0.4.1/dist/activity-graph.min.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@mariohamann/activity-graph@1.0.5/dist/activity-graph.min.js"></script>
 <style>
   :root {{
     --bg: #faf7f2;
