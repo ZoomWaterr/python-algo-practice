@@ -27,11 +27,16 @@ jobs:
       - name: 生成刷题面板
         run: python stats_dashboard.py
 
+      - name: 准备发布目录
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+
       - name: 部署到 GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
+          publish_dir: ./_site
           publish_branch: gh-pages
           keep_files: false
           commit_message: "📊 自动更新刷题面板 [skip ci]"
