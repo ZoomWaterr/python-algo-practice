@@ -1,0 +1,33 @@
+# VS Code CPH plugin cache
+.cph/
+
+# Temp files
+tempCodeRunnerFile.py
+tempCodeRunnerFile.*
+*_tempCodeRunnerFile.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Auto-generated dashboard
+index.html
+
+# Virtual env
+venv/
+.venv/
+env/
