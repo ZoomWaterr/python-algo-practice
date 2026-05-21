@@ -445,15 +445,16 @@ function buildHeatmap() {{
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  // Go back ~53 weeks = 371 days, start from the Sunday of that week
-  const totalDays = 371;
-  const start = new Date(today);
-  start.setDate(start.getDate() - totalDays);
-  // Align to Sunday (GitHub style: Sunday=0)
-  start.setDate(start.getDate() - start.getDay());
+  // Start from the Sunday of the week of first commit (or today - 90d, whichever is earlier)
+  const firstDate = DATA.firstCommit ? new Date(DATA.firstCommit + 'T00:00:00') : new Date(today);
+  const minStart = new Date(today);
+  minStart.setDate(minStart.getDate() - 90); // at least 3 months of grid
 
-  // Build the week grid
-  const numWeeks = Math.ceil(totalDays / 7) + 2; // +2 buffer
+  const start = firstDate < minStart ? new Date(firstDate) : new Date(minStart);
+  start.setDate(start.getDate() - start.getDay()); // align to Sunday
+
+  const totalDays = Math.ceil((today - start) / (1000 * 60 * 60 * 24));
+  const numWeeks = Math.ceil(totalDays / 7) + 1;
   const weeks = [];  // weeks[weekIdx][dayIdx] = {{date, level, files, tooltip}}
 
   let current = new Date(start);
