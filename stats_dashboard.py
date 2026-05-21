@@ -159,11 +159,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>刷题面板 · ZoomWaterr</title>
-<script type="module">
-import CalHeatmap from 'https://cdn.jsdelivr.net/npm/cal-heatmap@4.2.4/dist/cal-heatmap.min.js';
-
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.2.4/dist/cal-heatmap.min.js"></script>
+<script>
 const DATA = {data_json};
-
+document.addEventListener('DOMContentLoaded', function() {{
 const cal = new CalHeatmap();
 cal.paint({{
   itemSelector: '#cal-heatmap',
@@ -185,6 +185,7 @@ cal.paint({{
     }},
   }},
   theme: 'light',
+}});
 }});
 </script>
 <style>
