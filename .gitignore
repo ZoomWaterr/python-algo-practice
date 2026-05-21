@@ -24,6 +24,9 @@ Thumbs.db
 # Jupyter
 .ipynb_checkpoints/
 
+# Auto-generated dashboard
+index.html
+
 # Virtual env
 venv/
 .venv/
