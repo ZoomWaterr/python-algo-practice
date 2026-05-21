@@ -1,14 +1,13 @@
 """
-刷题数据可视化面板 v3
-- 使用 activity-graph Web Component 实现 GitHub 像素级热力图
+刷题数据可视化面板 v4
+- cal-heatmap (wa0x6e/cal-heatmap) — GitHub 官方同款热力图引擎
 - 清新暖色主题
-- 每次 push 自动更新
 """
 import json
 import subprocess
 from pathlib import Path
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 ROOT = Path(__file__).parent
 
@@ -17,7 +16,6 @@ TRACK = {
     "C语言网": "C语言网",
     "蓝桥云课": "蓝桥云课",
 }
-
 ROOT_EXCLUDE = {"stats.py", "generate_readme.py", "stats_dashboard.py"}
 EXCLUDE_KEYWORDS = ["temp", "__pycache__"]
 
@@ -27,9 +25,8 @@ def should_exclude(file_path: Path) -> bool:
         return True
     if file_path.name in ROOT_EXCLUDE:
         return True
-    name_lower = file_path.name.lower()
     for kw in EXCLUDE_KEYWORDS:
-        if kw in name_lower:
+        if kw in file_path.name.lower():
             return True
     return False
 
@@ -61,8 +58,7 @@ def get_git_history(days: int = 365) -> dict:
             ["git", "-c", "core.quotepath=false", "log",
              "--format=@@%ad", "--date=short", "--name-only",
              f"--since={days} days ago"],
-            cwd=ROOT, encoding="utf-8",
-        )
+            cwd=ROOT, encoding="utf-8")
     except Exception:
         return {}
 
@@ -99,42 +95,21 @@ def get_first_commit_date() -> str:
     try:
         out = subprocess.check_output(
             ["git", "log", "--reverse", "--format=%ad", "--date=short"],
-            cwd=ROOT, encoding="utf-8",
-        )
+            cwd=ROOT, encoding="utf-8")
         return out.strip().splitlines()[0] if out.strip() else ""
     except Exception:
         return ""
-
-
-def files_to_level(files: int) -> int:
-    """Map problem count to heatmap level (1-4), 0 means no data"""
-    if files == 0:
-        return 0
-    if files <= 2:
-        return 1
-    if files <= 5:
-        return 2
-    if files <= 10:
-        return 3
-    return 4
-
-
-def build_activity_data(history: dict) -> str:
-    """Build comma-separated date list for activity-graph.
-    Each date repeated N times = level N intensity."""
-    parts = []
-    for date_str, info in sorted(history.items()):
-        level = files_to_level(info["files"])
-        for _ in range(level):
-            parts.append(date_str)
-    return ",".join(parts)
 
 
 def build_html(counts: dict, history: dict) -> str:
     grand_total = sum(c["_total"] for c in counts.values())
     updated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     first_commit = get_first_commit_date()
-    activity_data = build_activity_data(history)
+
+    # Build heatmap data array for cal-heatmap
+    heatmap_data = []
+    for date_str, info in sorted(history.items()):
+        heatmap_data.append({"date": date_str, "value": info["files"]})
 
     platforms = []
     for label, cats in counts.items():
@@ -152,14 +127,16 @@ def build_html(counts: dict, history: dict) -> str:
     ]
     total_commits = sum(h["commits"] for h in history.values())
 
-    # Determine date range for heatmap
-    today = datetime.now(timezone.utc)
+    # Date range: start from 2 months before first commit, rounded to month start
     if first_commit:
-        fc = datetime.strptime(first_commit, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        fc = datetime.strptime(first_commit, "%Y-%m-%d")
     else:
-        fc = today
-    from_date = min(fc, today.replace(day=1) - __import__('datetime').timedelta(days=60))
-    range_start = from_date.strftime("%Y-%m-%d")
+        fc = datetime.now()
+    range_start = (fc.replace(day=1) - timedelta(days=60)).replace(day=1)
+    # Number of months to show (from range_start to now + 1)
+    now = datetime.now()
+    range_months = (now.year - range_start.year) * 12 + (now.month - range_start.month) + 1
+    range_start_js = f"new Date({range_start.year}, {range_start.month - 1}, 1)"
 
     data_json = json.dumps({
         "grandTotal": grand_total,
@@ -168,17 +145,50 @@ def build_html(counts: dict, history: dict) -> str:
         "totalCommits": total_commits,
         "firstCommit": first_commit,
         "updatedAt": updated_at,
-        "activityData": activity_data,
-        "rangeStart": range_start,
+        "heatmapData": heatmap_data,
+        "rangeStart": range_start_js,
+        "rangeMonths": min(range_months, 12),
     }, ensure_ascii=False)
 
-    return f"""<!DOCTYPE html>
+    return HTML_TEMPLATE.format(data_json=data_json)
+
+
+HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>刷题面板 · ZoomWaterr</title>
-<script type="module" src="https://cdn.jsdelivr.net/npm/@mariohamann/activity-graph@1.0.5/dist/activity-graph.min.js"></script>
+<script type="module">
+import CalHeatmap from 'https://cdn.jsdelivr.net/npm/cal-heatmap@4.4.2/dist/cal-heatmap.min.js';
+import 'https://cdn.jsdelivr.net/npm/cal-heatmap@4.4.2/dist/plugins/Tooltip.min.js';
+import 'https://cdn.jsdelivr.net/npm/cal-heatmap@4.4.2/dist/plugins/CalendarLabel.min.js';
+
+const DATA = {data_json};
+
+const cal = new CalHeatmap();
+cal.paint({{
+  itemSelector: '#cal-heatmap',
+  range: DATA.rangeMonths,
+  domain: {{ type: 'month', gutter: 4, label: {{ text: 'M月', textAlign: 'start', position: 'top' }} }},
+  subDomain: {{ type: 'ghDay', radius: 2, width: 12, height: 12, gutter: 4 }},
+  date: {{ start: DATA.rangeStart }},
+  data: {{
+    source: DATA.heatmapData,
+    type: 'json',
+    x: 'date',
+    y: d => d.value,
+  }},
+  scale: {{
+    color: {{
+      type: 'threshold',
+      range: ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127'],
+      domain: [1, 3, 6, 11],
+    }},
+  }},
+  theme: 'light',
+}});
+</script>
 <style>
   :root {{
     --bg: #faf7f2;
@@ -187,22 +197,13 @@ def build_html(counts: dict, history: dict) -> str:
     --text: #3d322b;
     --muted: #8c7b6e;
     --accent: #c8956c;
-    --accent-soft: #e8d5c4;
     --green: #40a578;
     --blue: #5b8fb4;
     --purple: #a080b4;
     --orange: #d4a058;
     --shadow: 0 2px 12px rgba(180,160,140,0.10);
     --shadow-lg: 0 4px 24px rgba(180,160,140,0.14);
-
-    /* activity-graph theming */
-    --ag-level-0-bg: #ebedf0;
-    --ag-level-1-bg: #c6e48b;
-    --ag-level-2-bg: #7bc96f;
-    --ag-level-3-bg: #239a3b;
-    --ag-level-4-bg: #196127;
   }}
-
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{
     background: var(--bg); color: var(--text);
@@ -211,20 +212,16 @@ def build_html(counts: dict, history: dict) -> str:
   }}
   .container {{ max-width: 860px; margin: 0 auto; padding: 32px 20px; }}
 
-  /* ── Header ── */
-  .header {{
-    display: flex; align-items: center; gap: 16px; margin-bottom: 28px;
-  }}
+  .header {{ display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }}
   .avatar {{
     width: 52px; height: 52px; border-radius: 50%;
     background: linear-gradient(135deg, #c8956c, #e8c4a0);
     display: flex; align-items: center; justify-content: center;
     font-size: 26px; font-weight: 900; color: #fff; flex-shrink: 0;
   }}
-  .header h1 {{ font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }}
+  .header h1 {{ font-size: 22px; font-weight: 700; }}
   .header .sub {{ color: var(--muted); font-size: 13px; }}
 
-  /* ── Bookmark hint ── */
   .bookmark-hint {{
     background: linear-gradient(135deg, #fef9f0, #fdf5e6);
     border: 1px solid #e8d5c4; border-radius: 8px;
@@ -233,7 +230,6 @@ def build_html(counts: dict, history: dict) -> str:
   }}
   .bookmark-hint strong {{ color: var(--accent); }}
 
-  /* ── Stat Cards ── */
   .cards {{
     display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
     gap: 10px; margin-bottom: 24px;
@@ -244,56 +240,23 @@ def build_html(counts: dict, history: dict) -> str:
     box-shadow: var(--shadow); transition: transform 0.15s;
   }}
   .card:hover {{ transform: translateY(-2px); box-shadow: var(--shadow-lg); }}
-  .card .num {{
-    font-size: 30px; font-weight: 800; line-height: 1.1; color: var(--accent);
-  }}
+  .card .num {{ font-size: 30px; font-weight: 800; line-height: 1.1; color: var(--accent); }}
   .card:nth-child(2) .num {{ color: var(--blue); }}
   .card:nth-child(3) .num {{ color: var(--purple); }}
   .card:nth-child(4) .num {{ color: var(--orange); }}
   .card:nth-child(5) .num {{ color: var(--green); }}
   .card .label {{ color: var(--muted); font-size: 12px; margin-top: 4px; }}
 
-  /* ── Sections ── */
-  .section-title {{
-    font-size: 15px; font-weight: 600; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 8px; color: var(--text);
-  }}
+  .section-title {{ font-size: 15px; font-weight: 600; margin-bottom: 14px; color: var(--text); }}
   .panel {{
     background: var(--card); border: 1px solid var(--border);
     border-radius: 10px; padding: 20px; margin-bottom: 20px;
     box-shadow: var(--shadow);
   }}
 
-  /* ── Heatmap ── */
-  activity-graph {{
-    display: block;
-    --activity-graph-level-0-bg: #ebedf0;
-    --activity-graph-level-1-bg: #c6e48b;
-    --activity-graph-level-2-bg: #7bc96f;
-    --activity-graph-level-3-bg: #239a3b;
-    --activity-graph-level-4-bg: #196127;
-    --activity-graph-text: #3d322b;
-    --activity-graph-muted: #8c7b6e;
-    --activity-graph-rounded: 2px;
-    --activity-graph-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }}
-  .heatmap-legend {{
-    display: flex; align-items: center; gap: 3px; margin-top: 8px;
-    justify-content: flex-end; font-size: 11px; color: var(--muted);
-  }}
-  .heatmap-legend .dot {{
-    width: 12px; height: 12px; border-radius: 2px; display: inline-block;
-  }}
-  .lg-0 {{ background: #ebedf0; }}
-  .lg-1 {{ background: #c6e48b; }}
-  .lg-2 {{ background: #7bc96f; }}
-  .lg-3 {{ background: #239a3b; }}
-  .lg-4 {{ background: #196127; }}
+  #cal-heatmap {{ font-size: 11px; }}
 
-  /* ── Platform bars ── */
-  .platform-row {{
-    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-  }}
+  .platform-row {{ display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }}
   .platform-row:last-child {{ margin-bottom: 0; }}
   .platform-name {{ width: 60px; text-align: right; font-weight: 600; font-size: 13px; flex-shrink: 0; }}
   .platform-bar-wrap {{ flex: 1; height: 24px; background: var(--bg); border-radius: 5px; overflow: hidden; }}
@@ -305,29 +268,19 @@ def build_html(counts: dict, history: dict) -> str:
   .platform-bar.lg {{ background: linear-gradient(90deg, #7bc96f, #40a578); color: #fff; }}
   .platform-bar.cl {{ background: linear-gradient(90deg, #7bb4e0, #5b8fb4); color: #fff; }}
   .platform-bar.lq {{ background: linear-gradient(90deg, #c4a0d8, #a080b4); color: #fff; }}
-  .subdirs {{
-    margin-left: 72px; margin-bottom: 8px;
-    display: flex; flex-wrap: wrap; gap: 5px;
-  }}
+  .subdirs {{ margin-left: 72px; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 5px; }}
   .subdir-tag {{
     background: var(--bg); color: var(--muted);
-    padding: 1px 9px; border-radius: 10px; font-size: 11px;
-    border: 1px solid var(--border);
+    padding: 1px 9px; border-radius: 10px; font-size: 11px; border: 1px solid var(--border);
   }}
 
-  /* ── Activity ── */
   .activity-item {{
     display: flex; align-items: flex-start; gap: 12px;
     padding: 9px 0; border-bottom: 1px solid #f0ebe0;
   }}
   .activity-item:last-child {{ border-bottom: none; }}
-  .act-date {{
-    font-size: 12px; color: var(--muted); flex-shrink: 0;
-    font-variant-numeric: tabular-nums; width: 48px;
-  }}
-  .act-dot {{
-    width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
-  }}
+  .act-date {{ font-size: 12px; color: var(--muted); flex-shrink: 0; width: 48px; }}
+  .act-dot {{ width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }}
   .act-dot.big {{ background: var(--green); box-shadow: 0 0 6px rgba(64,165,120,0.5); }}
   .act-dot.medium {{ background: var(--blue); }}
   .act-dot.small {{ background: var(--purple); }}
@@ -335,7 +288,6 @@ def build_html(counts: dict, history: dict) -> str:
   .act-count {{ font-weight: 700; color: var(--green); }}
   .act-fname {{ color: var(--muted); font-size: 11px; margin-left: 4px; }}
 
-  /* ── Footer ── */
   .footer {{
     text-align: center; color: var(--muted); font-size: 11px;
     padding: 20px 0; border-top: 1px solid var(--border); margin-top: 6px;
@@ -360,30 +312,14 @@ def build_html(counts: dict, history: dict) -> str:
   </div>
 
   <div class="bookmark-hint">
-    <span style="font-size:18px">📌</span>
-    <span>收藏本页 <strong>Ctrl+D</strong>，每次打开即最新数据</span>
+    📌 收藏本页 <strong>Ctrl+D</strong>，每次打开即最新数据
   </div>
 
   <div class="cards" id="cards"></div>
 
   <div class="panel">
     <div class="section-title">📅 刷题热力图</div>
-    <activity-graph
-      range-start="{range_start}"
-      first-day-of-week="1"
-      lang="zh-CN"
-      i18n='{{"activities":"次提交","less":"少","more":"多"}}'
-      activity-data="{activity_data}">
-    </activity-graph>
-    <div class="heatmap-legend">
-      少
-      <span class="dot lg-0"></span>
-      <span class="dot lg-1"></span>
-      <span class="dot lg-2"></span>
-      <span class="dot lg-3"></span>
-      <span class="dot lg-4"></span>
-      多
-    </div>
+    <div id="cal-heatmap"></div>
   </div>
 
   <div class="panel">
@@ -401,72 +337,60 @@ def build_html(counts: dict, history: dict) -> str:
 </div>
 
 <script>
-const DATA = {data_json};
+(function() {{
+  const DATA = {data_json};
 
-function buildCards() {{
   document.getElementById('cards').innerHTML = `
     <div class="card"><div class="num">${{DATA.grandTotal}}</div><div class="label">总题数</div></div>
     ${{DATA.platforms.map(p => `<div class="card"><div class="num">${{p.total}}</div><div class="label">${{p.name}}</div></div>`).join('')}}
     <div class="card"><div class="num">${{DATA.totalCommits}}</div><div class="label">总提交</div></div>
   `;
-}}
 
-function buildPlatforms() {{
+  // Platform bars
   const maxTotal = Math.max(...DATA.platforms.map(p => p.total), 1);
-  let html = DATA.platforms.map((pl, i) => {{
+  document.getElementById('platforms').innerHTML = DATA.platforms.map((pl, i) => {{
     const pct = Math.max((pl.total / maxTotal * 100).toFixed(0), 8);
     const barClass = ['lg', 'cl', 'lq'][i] || '';
     const subHtml = Object.entries(pl.subdirs).length > 0
       ? `<div class="subdirs">${{Object.entries(pl.subdirs).map(([k,v]) =>
           `<span class="subdir-tag">${{k}}: ${{v}}题</span>`).join('')}}</div>` : '';
-    return `
-      <div class="platform-row">
-        <span class="platform-name">${{pl.name}}</span>
-        <div class="platform-bar-wrap">
-          <div class="platform-bar ${{barClass}}" style="width:${{pct}}%">${{pl.total}} 题</div>
-        </div>
-      </div>${{subHtml}}`;
+    return `<div class="platform-row">
+      <span class="platform-name">${{pl.name}}</span>
+      <div class="platform-bar-wrap">
+        <div class="platform-bar ${{barClass}}" style="width:${{pct}}%">${{pl.total}} 题</div>
+      </div>
+    </div>${{subHtml}}`;
   }}).join('');
-  document.getElementById('platforms').innerHTML = html;
-}}
 
-function buildActivity() {{
+  // Activity
   const recent = DATA.recent;
   if (recent.length === 0) {{
     document.getElementById('activity').innerHTML = '<p style="color:var(--muted);font-size:13px">还没有活动记录</p>';
-    return;
+  }} else {{
+    document.getElementById('activity').innerHTML = recent.map(item => {{
+      const dotClass = item.files >= 8 ? 'big' : item.files >= 4 ? 'medium' : 'small';
+      const fnames = (item.filenames || []).slice(0, 4).map(f =>
+        `<span class="act-fname">${{f}}</span>`).join('');
+      const more = (item.filenames || []).length > 4
+        ? `<span class="act-fname">+${{item.filenames.length - 4}} more</span>` : '';
+      return `<div class="activity-item">
+        <span class="act-date">${{item.date.slice(5)}}</span>
+        <span class="act-dot ${{dotClass}}"></span>
+        <span class="act-files">
+          <span class="act-count">+${{item.files}} 题</span> · ${{item.commits}} 次提交
+          <br>${{fnames}}${{more}}
+        </span>
+      </div>`;
+    }}).join('');
   }}
-  let html = recent.map(item => {{
-    const dotClass = item.files >= 8 ? 'big' : item.files >= 4 ? 'medium' : 'small';
-    const fnames = (item.filenames || []).slice(0, 4).map(f =>
-      `<span class="act-fname">${{f}}</span>`).join('');
-    const more = (item.filenames || []).length > 4
-      ? `<span class="act-fname">+${{item.filenames.length - 4}} more</span>` : '';
-    return `<div class="activity-item">
-      <span class="act-date">${{item.date.slice(5)}}</span>
-      <span class="act-dot ${{dotClass}}"></span>
-      <span class="act-files">
-        <span class="act-count">+${{item.files}} 题</span> · ${{item.commits}} 次提交
-        <br>${{fnames}}${{more}}
-      </span>
-    </div>`;
-  }}).join('');
-  document.getElementById('activity').innerHTML = html;
-}}
 
-function buildFooter() {{
   document.getElementById('footer').innerHTML = `
     自动生成 · ${{DATA.updatedAt}}
     ${{DATA.firstCommit ? ' · 始于 ' + DATA.firstCommit : ''}}
     · <a href="https://github.com/ZoomWaterr/python-algo-practice">GitHub</a>
     · <a href="#" onclick="navigator.clipboard.writeText(location.href);this.textContent='已复制!';setTimeout(()=>this.textContent='复制链接',1500);return false">复制链接</a>
   `;
-}}
-
-buildCards();
-buildPlatforms();
-buildActivity();
-buildFooter();
+}})();
 </script>
 </body>
 </html>"""
@@ -479,7 +403,7 @@ def main():
     out = ROOT / "index.html"
     out.write_text(html, encoding="utf-8")
     grand = sum(c["_total"] for c in counts.values())
-    print(f"[OK] Dashboard generated: {out}")
+    print(f"[OK] Dashboard: {out}")
     print(f"     Total: {grand} problems | Active days: {len(history)}")
 
 
