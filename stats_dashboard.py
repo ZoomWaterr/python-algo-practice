@@ -136,7 +136,7 @@ def build_html(counts: dict, history: dict) -> str:
     # Number of months to show (from range_start to now + 1)
     now = datetime.now()
     range_months = (now.year - range_start.year) * 12 + (now.month - range_start.month) + 1
-    range_start_js = f"new Date({range_start.year}, {range_start.month - 1}, 1)"
+    range_start_js = range_start.strftime("%Y-%m-%d")
 
     data_json = json.dumps({
         "grandTotal": grand_total,
@@ -170,7 +170,7 @@ cal.paint({{
   range: DATA.rangeMonths,
   domain: {{ type: 'month', gutter: 4, label: {{ text: 'M月', textAlign: 'start', position: 'top' }} }},
   subDomain: {{ type: 'ghDay', radius: 2, width: 12, height: 12, gutter: 4 }},
-  date: {{ start: DATA.rangeStart }},
+  date: {{ start: new Date(DATA.rangeStart) }},
   data: {{
     source: DATA.heatmapData,
     type: 'json',
