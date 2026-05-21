@@ -160,9 +160,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>刷题面板 · ZoomWaterr</title>
 <script type="module">
-import CalHeatmap from 'https://cdn.jsdelivr.net/npm/cal-heatmap@4.4.2/dist/cal-heatmap.min.js';
-import 'https://cdn.jsdelivr.net/npm/cal-heatmap@4.4.2/dist/plugins/Tooltip.min.js';
-import 'https://cdn.jsdelivr.net/npm/cal-heatmap@4.4.2/dist/plugins/CalendarLabel.min.js';
+import CalHeatmap from 'https://cdn.jsdelivr.net/npm/cal-heatmap@4.2.4/dist/cal-heatmap.min.js';
 
 const DATA = {data_json};
 
