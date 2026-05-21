@@ -1,18 +1,14 @@
 """
-刷题数据可视化面板生成器 v2
-每次运行生成 index.html，包含：
-  - 统计卡片（总数 + 分平台）
-  - GitHub 像素级同款热力图
-  - 平台进度条
-  - 最近活动时间线
-  - GitHub 主页贡献图（实时抓取）
+刷题数据可视化面板 v3
+- 使用 activity-graph Web Component 实现 GitHub 像素级热力图
+- 清新暖色主题
+- 每次 push 自动更新
 """
-import os
 import json
 import subprocess
 from pathlib import Path
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 ROOT = Path(__file__).parent
 
@@ -62,22 +58,16 @@ def count_problems() -> dict:
 def get_git_history(days: int = 365) -> dict:
     try:
         out = subprocess.check_output(
-            [
-                "git", "-c", "core.quotepath=false",
-                "log",
-                "--format=@@%ad",
-                "--date=short",
-                "--name-only",
-                f"--since={days} days ago",
-            ],
+            ["git", "-c", "core.quotepath=false", "log",
+             "--format=@@%ad", "--date=short", "--name-only",
+             f"--since={days} days ago"],
             cwd=ROOT, encoding="utf-8",
         )
     except Exception:
         return {}
 
-    day_data: dict[str, dict] = defaultdict(lambda: {"commits": 0, "files": set()})
+    day_data = defaultdict(lambda: {"commits": 0, "files": set()})
     current_day = ""
-
     for line in out.strip().splitlines():
         if not line:
             continue
@@ -111,16 +101,40 @@ def get_first_commit_date() -> str:
             ["git", "log", "--reverse", "--format=%ad", "--date=short"],
             cwd=ROOT, encoding="utf-8",
         )
-        first = out.strip().splitlines()[0] if out.strip() else ""
-        return first
+        return out.strip().splitlines()[0] if out.strip() else ""
     except Exception:
         return ""
+
+
+def files_to_level(files: int) -> int:
+    """Map problem count to heatmap level (1-4), 0 means no data"""
+    if files == 0:
+        return 0
+    if files <= 2:
+        return 1
+    if files <= 5:
+        return 2
+    if files <= 10:
+        return 3
+    return 4
+
+
+def build_activity_data(history: dict) -> str:
+    """Build comma-separated date list for activity-graph.
+    Each date repeated N times = level N intensity."""
+    parts = []
+    for date_str, info in sorted(history.items()):
+        level = files_to_level(info["files"])
+        for _ in range(level):
+            parts.append(date_str)
+    return ",".join(parts)
 
 
 def build_html(counts: dict, history: dict) -> str:
     grand_total = sum(c["_total"] for c in counts.values())
     updated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     first_commit = get_first_commit_date()
+    activity_data = build_activity_data(history)
 
     platforms = []
     for label, cats in counts.items():
@@ -136,82 +150,102 @@ def build_html(counts: dict, history: dict) -> str:
          "filenames": h.get("filenames", [])}
         for d, h in recent_days
     ]
-
     total_commits = sum(h["commits"] for h in history.values())
+
+    # Determine date range for heatmap
+    today = datetime.now(timezone.utc)
+    if first_commit:
+        fc = datetime.strptime(first_commit, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    else:
+        fc = today
+    from_date = min(fc, today.replace(day=1) - __import__('datetime').timedelta(days=60))
+    range_start = from_date.strftime("%Y-%m-%d")
 
     data_json = json.dumps({
         "grandTotal": grand_total,
         "platforms": platforms,
-        "history": {k: v for k, v in history.items()},
         "recent": recent,
         "totalCommits": total_commits,
         "firstCommit": first_commit,
         "updatedAt": updated_at,
+        "activityData": activity_data,
+        "rangeStart": range_start,
     }, ensure_ascii=False)
 
-    return HTML_TEMPLATE.format(data_json=data_json)
-
-
-HTML_TEMPLATE = r"""<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>刷题面板 · ZoomWaterr</title>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@mariohamann/activity-graph@0.4.1/dist/activity-graph.min.js"></script>
 <style>
   :root {{
-    --bg: #0d1117;
-    --card: #161b22;
-    --border: #30363d;
-    --text: #e6edf3;
-    --muted: #8b949e;
-    --green: #3fb950;
-    --blue: #58a6ff;
-    --purple: #bc8cff;
-    --orange: #d2991d;
-    /* GitHub exact heatmap colors */
-    --gh-0: #161b22;
-    --gh-1: #0e4429;
-    --gh-2: #006d32;
-    --gh-3: #26a641;
-    --gh-4: #39d353;
+    --bg: #faf7f2;
+    --card: #fffcf8;
+    --border: #ede4d8;
+    --text: #3d322b;
+    --muted: #8c7b6e;
+    --accent: #c8956c;
+    --accent-soft: #e8d5c4;
+    --green: #40a578;
+    --blue: #5b8fb4;
+    --purple: #a080b4;
+    --orange: #d4a058;
+    --shadow: 0 2px 12px rgba(180,160,140,0.10);
+    --shadow-lg: 0 4px 24px rgba(180,160,140,0.14);
+
+    /* activity-graph theming */
+    --ag-level-0-bg: #ebedf0;
+    --ag-level-1-bg: #c6e48b;
+    --ag-level-2-bg: #7bc96f;
+    --ag-level-3-bg: #239a3b;
+    --ag-level-4-bg: #196127;
   }}
+
   * {{ margin:0; padding:0; box-sizing:border-box; }}
   body {{
-    background: var(--bg);
-    color: var(--text);
+    background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     min-height: 100vh;
   }}
-  .container {{ max-width: 900px; margin: 0 auto; padding: 32px 20px; }}
+  .container {{ max-width: 860px; margin: 0 auto; padding: 32px 20px; }}
 
   /* ── Header ── */
   .header {{
-    display: flex; align-items: center; gap: 16px; margin-bottom: 32px;
+    display: flex; align-items: center; gap: 16px; margin-bottom: 28px;
   }}
   .avatar {{
-    width: 56px; height: 56px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--green), var(--blue));
+    width: 52px; height: 52px; border-radius: 50%;
+    background: linear-gradient(135deg, #c8956c, #e8c4a0);
     display: flex; align-items: center; justify-content: center;
-    font-size: 28px; font-weight: 900; flex-shrink: 0;
+    font-size: 26px; font-weight: 900; color: #fff; flex-shrink: 0;
   }}
-  .header h1 {{ font-size: 24px; font-weight: 700; }}
+  .header h1 {{ font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }}
   .header .sub {{ color: var(--muted); font-size: 13px; }}
+
+  /* ── Bookmark hint ── */
+  .bookmark-hint {{
+    background: linear-gradient(135deg, #fef9f0, #fdf5e6);
+    border: 1px solid #e8d5c4; border-radius: 8px;
+    padding: 10px 16px; margin-bottom: 24px; font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+  }}
+  .bookmark-hint strong {{ color: var(--accent); }}
 
   /* ── Stat Cards ── */
   .cards {{
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 10px; margin-bottom: 28px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px; margin-bottom: 24px;
   }}
   .card {{
     background: var(--card); border: 1px solid var(--border);
     border-radius: 10px; padding: 18px 14px; text-align: center;
-    transition: transform 0.15s;
+    box-shadow: var(--shadow); transition: transform 0.15s;
   }}
-  .card:hover {{ transform: translateY(-2px); }}
+  .card:hover {{ transform: translateY(-2px); box-shadow: var(--shadow-lg); }}
   .card .num {{
-    font-size: 32px; font-weight: 800; line-height: 1.1;
-    color: var(--green);
+    font-size: 30px; font-weight: 800; line-height: 1.1; color: var(--accent);
   }}
   .card:nth-child(2) .num {{ color: var(--blue); }}
   .card:nth-child(3) .num {{ color: var(--purple); }}
@@ -219,86 +253,60 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   .card:nth-child(5) .num {{ color: var(--green); }}
   .card .label {{ color: var(--muted); font-size: 12px; margin-top: 4px; }}
 
-  /* ── Section Title ── */
+  /* ── Sections ── */
   .section-title {{
-    font-size: 16px; font-weight: 600; margin-bottom: 16px;
-    display: flex; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 600; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px; color: var(--text);
   }}
-
-  /* ── Heatmap (GitHub pixel-perfect clone) ── */
-  .heatmap-container {{
+  .panel {{
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 20px 16px 12px 16px; margin-bottom: 24px;
-    overflow-x: auto;
+    border-radius: 10px; padding: 20px; margin-bottom: 20px;
+    box-shadow: var(--shadow);
   }}
-  .heatmap-wrapper {{
-    display: inline-block; min-width: 680px;
-  }}
-  .heatmap-table {{
-    border-collapse: separate; border-spacing: 3px;
-  }}
-  .heatmap-table td {{
-    width: 12px; height: 12px; border-radius: 2px;
-    position: relative;
-  }}
-  .heatmap-table td[data-tooltip]:hover {{
-    outline: 2px solid rgba(255,255,255,0.6); outline-offset: 0px;
-  }}
-  .heatmap-table td[data-tooltip]:hover::after {{
-    content: attr(data-tooltip);
-    position: absolute; bottom: calc(100% + 8px); left: 50%;
-    transform: translateX(-50%);
-    background: #1c2128; color: var(--text);
-    padding: 5px 10px; border-radius: 6px; font-size: 11px;
-    white-space: nowrap; pointer-events: none; z-index: 100;
-    border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  }}
-  .gh-day-label {{
-    font-size: 11px; color: var(--muted); text-align: left;
-    padding-right: 4px; width: 28px; line-height: 1;
-    background: none !important;
-  }}
-  .gh-month-label {{
-    font-size: 11px; color: var(--muted); text-align: left;
-    padding-bottom: 4px; height: 16px;
-    background: none !important;
-  }}
-  /* GitHub exact heatmap levels */
-  .gh-0 {{ background: var(--gh-0); border: 1px solid rgba(48,54,61,0.5); }}
-  .gh-1 {{ background: var(--gh-1); }}
-  .gh-2 {{ background: var(--gh-2); }}
-  .gh-3 {{ background: var(--gh-3); }}
-  .gh-4 {{ background: var(--gh-4); }}
 
+  /* ── Heatmap ── */
+  activity-graph {{
+    display: block;
+    --activity-graph-level-0-bg: #ebedf0;
+    --activity-graph-level-1-bg: #c6e48b;
+    --activity-graph-level-2-bg: #7bc96f;
+    --activity-graph-level-3-bg: #239a3b;
+    --activity-graph-level-4-bg: #196127;
+    --activity-graph-text: #3d322b;
+    --activity-graph-muted: #8c7b6e;
+    --activity-graph-rounded: 2px;
+    --activity-graph-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }}
   .heatmap-legend {{
-    display: flex; align-items: center; gap: 3px; margin-top: 12px;
+    display: flex; align-items: center; gap: 3px; margin-top: 8px;
     justify-content: flex-end; font-size: 11px; color: var(--muted);
   }}
   .heatmap-legend .dot {{
     width: 12px; height: 12px; border-radius: 2px; display: inline-block;
   }}
+  .lg-0 {{ background: #ebedf0; }}
+  .lg-1 {{ background: #c6e48b; }}
+  .lg-2 {{ background: #7bc96f; }}
+  .lg-3 {{ background: #239a3b; }}
+  .lg-4 {{ background: #196127; }}
 
   /* ── Platform bars ── */
-  .platforms {{
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 20px; margin-bottom: 24px;
-  }}
   .platform-row {{
-    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
   }}
   .platform-row:last-child {{ margin-bottom: 0; }}
-  .platform-name {{ width: 65px; text-align: right; font-weight: 600; font-size: 13px; flex-shrink: 0; }}
-  .platform-bar-wrap {{ flex: 1; height: 26px; background: var(--bg); border-radius: 5px; overflow: hidden; }}
+  .platform-name {{ width: 60px; text-align: right; font-weight: 600; font-size: 13px; flex-shrink: 0; }}
+  .platform-bar-wrap {{ flex: 1; height: 24px; background: var(--bg); border-radius: 5px; overflow: hidden; }}
   .platform-bar {{
     height: 100%; border-radius: 5px; display: flex; align-items: center;
     padding-left: 10px; font-size: 12px; font-weight: 700;
     transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
   }}
-  .platform-bar.lg {{ background: linear-gradient(90deg, #1a7f37, #3fb950); color: #fff; }}
-  .platform-bar.cl {{ background: linear-gradient(90deg, #1f6feb, #58a6ff); color: #fff; }}
-  .platform-bar.lq {{ background: linear-gradient(90deg, #6e40c9, #bc8cff); color: #fff; }}
+  .platform-bar.lg {{ background: linear-gradient(90deg, #7bc96f, #40a578); color: #fff; }}
+  .platform-bar.cl {{ background: linear-gradient(90deg, #7bb4e0, #5b8fb4); color: #fff; }}
+  .platform-bar.lq {{ background: linear-gradient(90deg, #c4a0d8, #a080b4); color: #fff; }}
   .subdirs {{
-    margin-left: 77px; margin-bottom: 10px;
+    margin-left: 72px; margin-bottom: 8px;
     display: flex; flex-wrap: wrap; gap: 5px;
   }}
   .subdir-tag {{
@@ -307,14 +315,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     border: 1px solid var(--border);
   }}
 
-  /* ── Recent Activity ── */
-  .activity {{
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 20px; margin-bottom: 24px;
-  }}
+  /* ── Activity ── */
   .activity-item {{
     display: flex; align-items: flex-start; gap: 12px;
-    padding: 9px 0; border-bottom: 1px solid rgba(48,54,61,0.5);
+    padding: 9px 0; border-bottom: 1px solid #f0ebe0;
   }}
   .activity-item:last-child {{ border-bottom: none; }}
   .act-date {{
@@ -324,42 +328,29 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   .act-dot {{
     width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
   }}
-  .act-dot.big {{ background: var(--green); box-shadow: 0 0 8px rgba(63,185,80,0.6); }}
+  .act-dot.big {{ background: var(--green); box-shadow: 0 0 6px rgba(64,165,120,0.5); }}
   .act-dot.medium {{ background: var(--blue); }}
   .act-dot.small {{ background: var(--purple); }}
   .act-files {{ font-size: 13px; color: var(--text); line-height: 1.5; }}
   .act-count {{ font-weight: 700; color: var(--green); }}
-  .act-fname {{
-    color: var(--muted); font-size: 11px; margin-left: 4px;
-  }}
+  .act-fname {{ color: var(--muted); font-size: 11px; margin-left: 4px; }}
 
   /* ── Footer ── */
   .footer {{
     text-align: center; color: var(--muted); font-size: 11px;
-    padding: 20px 0; border-top: 1px solid var(--border); margin-top: 8px;
+    padding: 20px 0; border-top: 1px solid var(--border); margin-top: 6px;
   }}
-  .footer a {{ color: var(--blue); text-decoration: none; }}
+  .footer a {{ color: var(--accent); text-decoration: none; }}
   .footer a:hover {{ text-decoration: underline; }}
-
-  /* ── Bookmark hint ── */
-  .bookmark-hint {{
-    background: linear-gradient(135deg, rgba(63,185,80,0.1), rgba(88,166,255,0.1));
-    border: 1px solid rgba(63,185,80,0.3); border-radius: 8px;
-    padding: 12px 16px; margin-bottom: 24px; font-size: 13px; color: var(--muted);
-    display: flex; align-items: center; gap: 8px;
-  }}
-  .bookmark-hint strong {{ color: var(--green); }}
 
   @media (max-width: 640px) {{
     .cards {{ grid-template-columns: repeat(3, 1fr); }}
-    .heatmap-wrapper {{ min-width: auto; }}
   }}
 </style>
 </head>
 <body>
 <div class="container">
 
-  <!-- Header -->
   <div class="header">
     <div class="avatar">ZT</div>
     <div>
@@ -368,43 +359,43 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Bookmark hint -->
   <div class="bookmark-hint">
     <span style="font-size:18px">📌</span>
-    <span>把本页加入书签：<strong>Ctrl+D</strong>，以后每次打开就是最新数据</span>
+    <span>收藏本页 <strong>Ctrl+D</strong>，每次打开即最新数据</span>
   </div>
 
-  <!-- Stat Cards -->
   <div class="cards" id="cards"></div>
 
-  <!-- Heatmap -->
-  <div class="heatmap-container">
+  <div class="panel">
     <div class="section-title">📅 刷题热力图</div>
-    <div id="heatmap"></div>
+    <activity-graph
+      range-start="{range_start}"
+      first-day-of-week="1"
+      lang="zh-CN"
+      i18n='{{"activities":"次提交","less":"少","more":"多"}}'
+      activity-data="{activity_data}">
+    </activity-graph>
     <div class="heatmap-legend">
       少
-      <span class="dot gh-0"></span>
-      <span class="dot gh-1"></span>
-      <span class="dot gh-2"></span>
-      <span class="dot gh-3"></span>
-      <span class="dot gh-4"></span>
+      <span class="dot lg-0"></span>
+      <span class="dot lg-1"></span>
+      <span class="dot lg-2"></span>
+      <span class="dot lg-3"></span>
+      <span class="dot lg-4"></span>
       多
     </div>
   </div>
 
-  <!-- Platform Breakdown -->
-  <div class="platforms">
+  <div class="panel">
     <div class="section-title">📊 平台分布</div>
     <div id="platforms"></div>
   </div>
 
-  <!-- Recent Activity -->
-  <div class="activity">
+  <div class="panel">
     <div class="section-title">🔥 最近活动</div>
     <div id="activity"></div>
   </div>
 
-  <!-- Footer -->
   <div class="footer" id="footer"></div>
 
 </div>
@@ -413,172 +404,54 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 const DATA = {data_json};
 
 function buildCards() {{
-  const cards = document.getElementById('cards');
-  cards.innerHTML = `
-    <div class="card">
-      <div class="num">${{DATA.grandTotal}}</div>
-      <div class="label">总题数</div>
-    </div>
-    ${{DATA.platforms.map(p => `
-    <div class="card">
-      <div class="num">${{p.total}}</div>
-      <div class="label">${{p.name}}</div>
-    </div>
-    `).join('')}}
-    <div class="card">
-      <div class="num">${{DATA.totalCommits}}</div>
-      <div class="label">总提交</div>
-    </div>
+  document.getElementById('cards').innerHTML = `
+    <div class="card"><div class="num">${{DATA.grandTotal}}</div><div class="label">总题数</div></div>
+    ${{DATA.platforms.map(p => `<div class="card"><div class="num">${{p.total}}</div><div class="label">${{p.name}}</div></div>`).join('')}}
+    <div class="card"><div class="num">${{DATA.totalCommits}}</div><div class="label">总提交</div></div>
   `;
 }}
 
-function buildHeatmap() {{
-  const container = document.getElementById('heatmap');
-  const history = DATA.history;
-  const allDates = Object.keys(history).sort();
-
-  if (allDates.length === 0) {{
-    container.innerHTML = '<p style="color:var(--muted);font-size:13px">还没有刷题记录，开始你的第一题吧！</p>';
-    return;
-  }}
-
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  // Start from the Sunday of the week of first commit (or today - 90d, whichever is earlier)
-  const firstDate = DATA.firstCommit ? new Date(DATA.firstCommit + 'T00:00:00') : new Date(today);
-  const minStart = new Date(today);
-  minStart.setDate(minStart.getDate() - 90); // at least 3 months of grid
-
-  const start = firstDate < minStart ? new Date(firstDate) : new Date(minStart);
-  start.setDate(start.getDate() - start.getDay()); // align to Sunday
-
-  const totalDays = Math.ceil((today - start) / (1000 * 60 * 60 * 24));
-  const numWeeks = Math.ceil(totalDays / 7) + 1;
-  const weeks = [];  // weeks[weekIdx][dayIdx] = {{date, level, files, tooltip}}
-
-  let current = new Date(start);
-  for (let w = 0; w < numWeeks; w++) {{
-    const week = [];
-    for (let d = 0; d < 7; d++) {{
-      const dateStr = current.toISOString().slice(0, 10);
-      const data = history[dateStr];
-      const files = data ? data.files : 0;
-      let level = 0;
-      if (files === 0) level = 0;
-      else if (files <= 2) level = 1;
-      else if (files <= 5) level = 2;
-      else if (files <= 10) level = 3;
-      else level = 4;
-
-      const isFuture = current > today;
-      const tooltip = isFuture ? '' :
-        (files > 0 ? `${{dateStr}}: ${{files}} 题, ${{data.commits}} 次提交` : `${{dateStr}}: 无刷题记录`);
-
-      // Show month label on first day of month
-      const showMonth = d === 0 && current.getDate() <= 7;
-
-      week.push({{
-        dateStr, files, level, tooltip, isFuture,
-        showMonth, monthLabel: current.getMonth() + 1 + '月'
-      }});
-      current.setDate(current.getDate() + 1);
-    }}
-    weeks.push(week);
-  }}
-
-  // Day labels (GitHub shows Mon, Wed, Fri)
-  const dayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
-
-  // Build table
-  let html = '<div class="heatmap-wrapper"><table class="heatmap-table"><tbody>';
-
-  // Month label row
-  html += '<tr>';
-  html += '<td class="gh-month-label"></td>'; // day label column
-  weeks.forEach((week, wi) => {{
-    const firstDay = week[0];
-    if (firstDay.showMonth && !firstDay.isFuture) {{
-      html += `<td class="gh-month-label" colspan="1">${{firstDay.monthLabel}}</td>`;
-    }} else {{
-      html += '<td class="gh-month-label"></td>';
-    }}
-  }});
-  html += '</tr>';
-
-  // Day rows (7 rows for Sun-Sat, but we can skip some)
-  for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {{
-    html += '<tr>';
-    html += `<td class="gh-day-label">${{dayLabels[dayOfWeek]}}</td>`;
-    weeks.forEach(week => {{
-      const day = week[dayOfWeek];
-      if (day.isFuture) {{
-        html += '<td></td>';
-      }} else {{
-        html += `<td class="gh-${{day.level}}" data-tooltip="${{day.tooltip}}"></td>`;
-      }}
-    }});
-    html += '</tr>';
-  }}
-
-  html += '</tbody></table></div>';
-  container.innerHTML = html;
-}}
-
 function buildPlatforms() {{
-  const container = document.getElementById('platforms');
   const maxTotal = Math.max(...DATA.platforms.map(p => p.total), 1);
-
   let html = DATA.platforms.map((pl, i) => {{
     const pct = Math.max((pl.total / maxTotal * 100).toFixed(0), 8);
     const barClass = ['lg', 'cl', 'lq'][i] || '';
     const subHtml = Object.entries(pl.subdirs).length > 0
       ? `<div class="subdirs">${{Object.entries(pl.subdirs).map(([k,v]) =>
-          `<span class="subdir-tag">${{k}}: ${{v}}题</span>`
-        ).join('')}}</div>`
-      : '';
+          `<span class="subdir-tag">${{k}}: ${{v}}题</span>`).join('')}}</div>` : '';
     return `
       <div class="platform-row">
         <span class="platform-name">${{pl.name}}</span>
         <div class="platform-bar-wrap">
           <div class="platform-bar ${{barClass}}" style="width:${{pct}}%">${{pl.total}} 题</div>
         </div>
-      </div>
-      ${{subHtml}}
-    `;
+      </div>${{subHtml}}`;
   }}).join('');
-  container.innerHTML = html;
+  document.getElementById('platforms').innerHTML = html;
 }}
 
 function buildActivity() {{
-  const container = document.getElementById('activity');
   const recent = DATA.recent;
-
   if (recent.length === 0) {{
-    container.innerHTML = '<p style="color:var(--muted);font-size:13px">暂无活动</p>';
+    document.getElementById('activity').innerHTML = '<p style="color:var(--muted);font-size:13px">还没有活动记录</p>';
     return;
   }}
-
   let html = recent.map(item => {{
     const dotClass = item.files >= 8 ? 'big' : item.files >= 4 ? 'medium' : 'small';
     const fnames = (item.filenames || []).slice(0, 4).map(f =>
-      `<span class="act-fname">${{f}}</span>`
-    ).join('');
+      `<span class="act-fname">${{f}}</span>`).join('');
     const more = (item.filenames || []).length > 4
       ? `<span class="act-fname">+${{item.filenames.length - 4}} more</span>` : '';
-    return `
-      <div class="activity-item">
-        <span class="act-date">${{item.date.slice(5)}}</span>
-        <span class="act-dot ${{dotClass}}"></span>
-        <span class="act-files">
-          <span class="act-count">+${{item.files}} 题</span>
-          · ${{item.commits}} 次提交
-          <br>${{fnames}}${{more}}
-        </span>
-      </div>
-    `;
+    return `<div class="activity-item">
+      <span class="act-date">${{item.date.slice(5)}}</span>
+      <span class="act-dot ${{dotClass}}"></span>
+      <span class="act-files">
+        <span class="act-count">+${{item.files}} 题</span> · ${{item.commits}} 次提交
+        <br>${{fnames}}${{more}}
+      </span>
+    </div>`;
   }}).join('');
-  container.innerHTML = html;
+  document.getElementById('activity').innerHTML = html;
 }}
 
 function buildFooter() {{
@@ -591,7 +464,6 @@ function buildFooter() {{
 }}
 
 buildCards();
-buildHeatmap();
 buildPlatforms();
 buildActivity();
 buildFooter();
@@ -601,7 +473,6 @@ buildFooter();
 
 
 def main():
-    import sys
     counts = count_problems()
     history = get_git_history(days=365)
     html = build_html(counts, history)
