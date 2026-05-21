@@ -465,10 +465,11 @@ function buildHeatmap() {{
       const data = history[dateStr];
       const files = data ? data.files : 0;
       let level = 0;
-      if (files >= 1 && files <= 2) level = 1;
+      if (files === 0) level = 0;
+      else if (files <= 2) level = 1;
       else if (files <= 5) level = 2;
       else if (files <= 10) level = 3;
-      else if (files > 10) level = 4;
+      else level = 4;
 
       const isFuture = current > today;
       const tooltip = isFuture ? '' :
