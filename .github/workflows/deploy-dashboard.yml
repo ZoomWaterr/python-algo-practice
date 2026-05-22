@@ -22,7 +22,7 @@ jobs:
       - name: 安装 Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.14'
 
       - name: 生成刷题面板
         run: python stats_dashboard.py

@@ -245,18 +245,6 @@ def build_stats_markdown(counts: dict, daily_files: dict) -> str:
     lines.append(f'    <td align="center"><b>总计</b><br><sub>{grand} 题</sub></td>')
     lines.append("  </tr>")
     lines.append("</table>")
-    lines.append("")
-
-    if daily_files:
-        lines.append("<details>")
-        lines.append("<summary>最近刷题记录</summary>")
-        lines.append("")
-        lines.append("| 日期 | 题数 |")
-        lines.append("| --- | ---: |")
-        for day, files in sorted(daily_files.items(), reverse=True)[:7]:
-            lines.append(f"| {day} | +{len(files)} |")
-        lines.append("")
-        lines.append("</details>")
 
     return "\n".join(lines)
 
