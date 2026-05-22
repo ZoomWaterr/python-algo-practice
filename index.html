@@ -7,27 +7,30 @@
 <style>
   :root {
     color-scheme: light;
-    --bg: #f5f8f4;
-    --paper: #fffef9;
-    --paper-strong: #fdfbf2;
-    --ink: #1d2420;
-    --muted: #657168;
-    --faint: #8a968e;
-    --line: #dfe8dc;
-    --line-strong: #c9d7cc;
-    --green: #227a55;
-    --green-soft: #dff0df;
-    --blue: #3f6f99;
-    --amber: #b56e21;
-    --rose: #a94f5d;
-    --shadow: 0 18px 50px rgba(35, 65, 48, 0.08);
-    --cell: 13px;
+    --bg: oklch(0.965 0.018 168);
+    --bg-2: oklch(0.938 0.022 202);
+    --surface: oklch(0.988 0.006 96);
+    --surface-soft: oklch(0.962 0.014 154);
+    --surface-blue: oklch(0.947 0.019 225);
+    --ink: oklch(0.205 0.028 165);
+    --muted: oklch(0.48 0.027 170);
+    --faint: oklch(0.62 0.024 170);
+    --line: oklch(0.865 0.024 162);
+    --line-strong: oklch(0.78 0.034 162);
+    --green: oklch(0.47 0.116 154);
+    --green-deep: oklch(0.36 0.095 154);
+    --blue: oklch(0.49 0.095 235);
+    --copper: oklch(0.56 0.116 63);
+    --rose: oklch(0.52 0.105 15);
+    --paper-shadow: 0 18px 54px oklch(0.28 0.038 160 / 0.12);
+    --soft-shadow: 0 10px 26px oklch(0.28 0.038 160 / 0.08);
+    --cell: 14px;
     --gap: 4px;
-    --h0: #e8eee7;
-    --h1: #bfe3bf;
-    --h2: #76c884;
-    --h3: #2f965f;
-    --h4: #155f3d;
+    --h0: oklch(0.91 0.017 154);
+    --h1: oklch(0.78 0.07 148);
+    --h2: oklch(0.66 0.112 149);
+    --h3: oklch(0.53 0.13 151);
+    --h4: oklch(0.39 0.112 154);
   }
 
   * { box-sizing: border-box; }
@@ -36,24 +39,35 @@
     margin: 0;
     min-height: 100vh;
     background:
-      linear-gradient(180deg, rgba(255, 254, 249, 0.9), rgba(245, 248, 244, 0.95) 260px),
-      var(--bg);
+      linear-gradient(135deg, var(--bg), var(--bg-2) 58%, oklch(0.95 0.016 74));
     color: var(--ink);
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     letter-spacing: 0;
   }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, oklch(0.5 0.02 160 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.5 0.02 160 / 0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(180deg, oklch(0 0 0 / 0.34), transparent 62%);
+  }
   a { color: inherit; }
   .shell {
-    width: min(1180px, calc(100% - 32px));
+    width: min(1280px, calc(100% - 36px));
     margin: 0 auto;
-    padding: 28px 0 34px;
+    padding: 20px 0 34px;
+    position: relative;
   }
-  .topbar {
+  .masthead {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 22px;
+    margin-bottom: 14px;
   }
   .brand {
     display: flex;
@@ -62,22 +76,23 @@
     min-width: 0;
   }
   .brand-mark {
-    width: 46px;
-    height: 46px;
-    border: 1px solid var(--line-strong);
-    border-radius: 8px;
+    width: 42px;
+    height: 42px;
     display: grid;
     place-items: center;
-    background: var(--paper);
-    box-shadow: inset 0 0 0 4px rgba(34, 122, 85, 0.05);
-    color: var(--green);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--green-deep);
     font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-    font-weight: 800;
+    font-size: 13px;
+    font-weight: 850;
+    box-shadow: inset 0 0 0 4px oklch(0.78 0.08 150 / 0.16);
   }
   .brand-title {
     display: block;
-    font-size: 18px;
-    font-weight: 780;
+    font-size: 17px;
+    font-weight: 800;
     line-height: 1.1;
   }
   .brand-subtitle {
@@ -90,85 +105,78 @@
     text-overflow: ellipsis;
   }
   .repo-link {
-    min-height: 40px;
+    min-height: 42px;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 0 13px;
+    padding: 0 14px;
     border: 1px solid var(--line-strong);
     border-radius: 8px;
-    background: var(--paper);
+    background: oklch(0.99 0.005 96 / 0.82);
     color: var(--ink);
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 750;
     text-decoration: none;
-    box-shadow: 0 8px 18px rgba(35, 65, 48, 0.05);
-    transition: transform 180ms ease, border-color 180ms ease;
+    box-shadow: var(--soft-shadow);
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms ease, background 180ms ease;
   }
-  .repo-link:hover { transform: translateY(-1px); border-color: var(--green); }
+  .repo-link:hover {
+    transform: translateY(-1px);
+    border-color: var(--green);
+    background: var(--surface);
+  }
   .repo-link:active { transform: translateY(0); }
+  .repo-link:focus-visible {
+    outline: 3px solid oklch(0.68 0.11 154 / 0.38);
+    outline-offset: 2px;
+  }
   .repo-link svg { width: 16px; height: 16px; }
 
-  .hero {
+  .overview {
     display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(310px, 0.8fr);
-    gap: 18px;
-    align-items: stretch;
-    margin-bottom: 18px;
-  }
-  .hero-main,
-  .pulse {
+    grid-template-columns: minmax(0, 1.45fr) minmax(270px, 0.55fr);
+    gap: 1px;
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: var(--paper);
-    box-shadow: var(--shadow);
+    background: var(--line);
+    box-shadow: var(--paper-shadow);
+    overflow: hidden;
+  }
+  .overview-copy,
+  .today-panel {
+    background: oklch(0.99 0.006 96 / 0.9);
     min-width: 0;
   }
-  .hero-main {
-    padding: 26px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    min-height: 246px;
+  .overview-copy {
+    padding: 24px 30px 22px;
   }
   .eyebrow {
-    display: inline-flex;
-    width: fit-content;
-    align-items: center;
-    gap: 8px;
-    color: var(--green);
+    margin: 0 0 10px;
+    color: var(--green-deep);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 850;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .eyebrow::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 0 5px rgba(34, 122, 85, 0.1);
   }
   h1 {
-    margin: 15px 0 12px;
-    max-width: 720px;
-    font-size: 38px;
-    line-height: 1.08;
+    margin: 0;
+    max-width: 760px;
+    font-size: 36px;
+    line-height: 1.1;
     letter-spacing: 0;
   }
   .lead {
-    margin: 0;
-    max-width: 68ch;
+    max-width: 70ch;
+    margin: 14px 0 0;
     color: var(--muted);
     font-size: 15px;
-    line-height: 1.75;
+    line-height: 1.7;
   }
   .hero-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 9px;
-    margin-top: 24px;
+    gap: 8px;
+    margin-top: 20px;
   }
   .meta-pill {
     display: inline-flex;
@@ -177,7 +185,7 @@
     padding: 0 10px;
     border: 1px solid var(--line);
     border-radius: 999px;
-    background: var(--paper-strong);
+    background: var(--surface-soft);
     color: var(--muted);
     font-size: 12px;
   }
@@ -186,132 +194,123 @@
     color: var(--ink);
     font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     font-size: 12px;
+    font-variant-numeric: tabular-nums;
   }
-  .pulse {
-    padding: 22px;
-    display: grid;
-    grid-template-rows: auto 1fr auto;
-    gap: 18px;
-    overflow: hidden;
-  }
-  .pulse-head {
+  .today-panel {
+    padding: 23px 26px;
     display: flex;
+    flex-direction: column;
     justify-content: space-between;
-    gap: 14px;
-    align-items: flex-start;
+    min-height: 216px;
   }
-  .pulse-title {
+  .today-kicker {
     margin: 0;
     color: var(--muted);
     font-size: 13px;
     font-weight: 750;
   }
-  .pulse-date {
+  .today-date {
     color: var(--faint);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     font-size: 12px;
-    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   }
-  .pulse-number {
-    align-self: center;
+  .today-number {
+    margin: 20px 0 10px;
+    color: var(--green-deep);
     font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-    font-size: 86px;
+    font-size: 72px;
     line-height: 0.9;
-    font-weight: 850;
-    color: var(--green);
+    font-weight: 900;
     font-variant-numeric: tabular-nums;
   }
-  .pulse-foot {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-  .mini-stat {
-    border-top: 1px solid var(--line);
-    padding-top: 10px;
-  }
-  .mini-stat span {
-    display: block;
+  .today-copy {
+    margin: 0;
     color: var(--muted);
-    font-size: 12px;
-  }
-  .mini-stat strong {
-    display: block;
-    margin-top: 4px;
-    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-    font-size: 19px;
-    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    line-height: 1.6;
   }
 
-  .stats-grid {
+  .metric-strip {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 18px;
-  }
-  .stat-card {
+    margin: 12px 0;
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: var(--paper);
-    padding: 16px 14px;
-    min-height: 96px;
+    background: oklch(0.99 0.006 96 / 0.86);
+    overflow: hidden;
   }
-  .stat-label {
+  .metric {
+    min-width: 0;
+    padding: 12px 16px;
+    border-left: 1px solid var(--line);
+  }
+  .metric:first-child { border-left: 0; }
+  .metric-label {
     color: var(--muted);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 720;
   }
-  .stat-value {
-    margin-top: 12px;
+  .metric-value {
+    margin-top: 8px;
     font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-    font-size: 29px;
+    font-size: 23px;
     line-height: 1;
-    font-weight: 850;
+    font-weight: 900;
     font-variant-numeric: tabular-nums;
   }
-  .stat-card:nth-child(2) .stat-value { color: var(--blue); }
-  .stat-card:nth-child(3) .stat-value { color: var(--amber); }
-  .stat-card:nth-child(4) .stat-value { color: var(--rose); }
-  .stat-card:nth-child(5) .stat-value { color: var(--green); }
+  .metric-note {
+    margin-top: 6px;
+    color: var(--faint);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .metric:nth-child(2) .metric-value { color: var(--blue); }
+  .metric:nth-child(3) .metric-value { color: var(--copper); }
+  .metric:nth-child(5) .metric-value { color: var(--green-deep); }
 
   .content-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.8fr);
-    gap: 18px;
+    grid-template-columns: minmax(0, 1.52fr) minmax(310px, 0.78fr);
+    gap: 14px;
     align-items: start;
   }
-  .content-grid > * {
+  .stack {
+    display: grid;
+    gap: 14px;
     min-width: 0;
   }
   .panel {
     border: 1px solid var(--line);
     border-radius: 8px;
-    background: var(--paper);
-    box-shadow: 0 12px 34px rgba(35, 65, 48, 0.06);
+    background: oklch(0.99 0.006 96 / 0.88);
+    box-shadow: var(--soft-shadow);
     min-width: 0;
   }
-  .panel + .panel { margin-top: 18px; }
   .panel-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 14px;
-    padding: 18px 20px 0;
+    gap: 12px;
+    padding: 20px 22px 0;
   }
   .panel-title {
     margin: 0;
-    font-size: 16px;
-    font-weight: 800;
+    font-size: 17px;
+    font-weight: 850;
   }
   .panel-note {
     color: var(--muted);
     font-size: 12px;
     text-align: right;
   }
-  .panel-body { padding: 18px 20px 20px; }
+  .panel-body { padding: 18px 22px 22px; }
 
   .heatmap-wrap {
     overflow-x: auto;
-    padding-bottom: 4px;
+    overflow-y: visible;
+    padding: 10px 0 8px;
     width: 100%;
   }
   .heatmap {
@@ -322,8 +321,8 @@
     display: grid;
     grid-template-columns: repeat(var(--weeks), var(--cell));
     gap: var(--gap);
-    margin-left: 26px;
-    margin-bottom: 7px;
+    margin-left: 28px;
+    margin-bottom: 9px;
     color: var(--muted);
     font-size: 11px;
     line-height: 1;
@@ -334,7 +333,7 @@
   }
   .heatmap-body {
     display: grid;
-    grid-template-columns: 18px auto;
+    grid-template-columns: 20px auto;
     gap: 8px;
     align-items: start;
   }
@@ -361,10 +360,10 @@
   .cell {
     width: var(--cell);
     height: var(--cell);
-    border-radius: 3px;
+    border: 1px solid oklch(0.28 0.03 160 / 0.05);
+    border-radius: 4px;
     background: var(--h0);
-    border: 1px solid rgba(31, 53, 39, 0.05);
-    position: relative;
+    transition: transform 120ms ease, outline-color 120ms ease, background 160ms ease;
   }
   .cell.h1 { background: var(--h1); }
   .cell.h2 { background: var(--h2); }
@@ -375,32 +374,15 @@
     border-color: transparent;
   }
   .cell:not(.future):hover {
-    outline: 2px solid rgba(29, 36, 32, 0.44);
+    transform: translateY(-1px);
+    outline: 2px solid oklch(0.24 0.02 160 / 0.5);
     outline-offset: 1px;
-  }
-  .cell[data-tip]:hover::after {
-    content: attr(data-tip);
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 9px);
-    transform: translateX(-50%);
-    z-index: 4;
-    width: max-content;
-    max-width: 260px;
-    padding: 7px 10px;
-    border-radius: 7px;
-    background: #1f2923;
-    color: #f7fbf5;
-    font-size: 12px;
-    line-height: 1.3;
-    box-shadow: 0 12px 26px rgba(31, 41, 35, 0.22);
-    pointer-events: none;
   }
   .legend {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 7px;
     margin-top: 12px;
     color: var(--muted);
     font-size: 12px;
@@ -408,7 +390,7 @@
   .legend span:not(.legend-label) {
     width: var(--cell);
     height: var(--cell);
-    border-radius: 3px;
+    border-radius: 4px;
     display: inline-block;
   }
   .legend .h0 { background: var(--h0); }
@@ -417,43 +399,73 @@
   .legend .h3 { background: var(--h3); }
   .legend .h4 { background: var(--h4); }
 
+  .rhythm {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--line);
+    overflow: hidden;
+  }
+  .rhythm-item {
+    background: var(--surface);
+    padding: 16px;
+  }
+  .rhythm-item span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .rhythm-item strong {
+    display: block;
+    margin-top: 8px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 26px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .rhythm-copy {
+    margin: 14px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
   .platforms {
     display: grid;
     gap: 16px;
   }
   .platform-row {
     display: grid;
-    grid-template-columns: 74px minmax(0, 1fr) 44px;
+    grid-template-columns: 74px minmax(0, 1fr) 42px;
     gap: 12px;
     align-items: center;
   }
   .platform-name {
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 850;
     text-align: right;
   }
   .bar-track {
-    height: 28px;
-    border-radius: 999px;
-    background: #edf3ec;
+    height: 26px;
     border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface-soft);
     overflow: hidden;
   }
   .bar-fill {
     width: var(--pct);
-    min-width: 28px;
+    min-width: 26px;
     height: 100%;
-    border-radius: 999px;
-    background: var(--green);
+    border-radius: inherit;
+    background: var(--accent, var(--green));
     transition: width 700ms cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .platform-row:nth-child(2) .bar-fill { background: var(--blue); }
-  .platform-row:nth-child(3) .bar-fill { background: var(--amber); }
   .platform-count {
-    color: var(--ink);
     font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 850;
     font-variant-numeric: tabular-nums;
   }
   .subdir-list {
@@ -461,17 +473,17 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-top: -7px;
+    margin-top: -6px;
   }
   .tag {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 25px;
-    padding: 0 9px;
+    min-height: 24px;
+    padding: 0 8px;
     border: 1px solid var(--line);
     border-radius: 999px;
-    background: var(--paper-strong);
+    background: var(--surface);
     color: var(--muted);
     font-size: 12px;
   }
@@ -486,9 +498,9 @@
   }
   .activity-row {
     display: grid;
-    grid-template-columns: 80px 1fr;
-    gap: 14px;
-    padding: 14px 0;
+    grid-template-columns: 82px 1fr;
+    gap: 16px;
+    padding: 15px 0;
     border-top: 1px solid var(--line);
   }
   .activity-row:first-child { border-top: 0; padding-top: 0; }
@@ -496,36 +508,35 @@
     color: var(--muted);
     font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
     font-size: 12px;
-    line-height: 1.7;
+    line-height: 1.8;
   }
-  .activity-main {
-    min-width: 0;
-  }
+  .activity-main { min-width: 0; }
   .activity-title {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
     align-items: baseline;
+    gap: 8px;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 850;
   }
   .activity-title span {
     color: var(--muted);
-    font-weight: 600;
+    font-weight: 650;
   }
   .file-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 7px;
     margin-top: 9px;
   }
   .file-pill {
     max-width: 100%;
     min-height: 25px;
     padding: 4px 8px;
+    border: 1px solid oklch(0.86 0.024 170);
     border-radius: 7px;
-    background: #eef4ef;
-    color: #33443a;
+    background: var(--surface-soft);
+    color: oklch(0.31 0.035 164);
     font-size: 12px;
     line-height: 1.35;
     overflow-wrap: anywhere;
@@ -536,13 +547,31 @@
     font-size: 13px;
   }
   .footer {
-    margin-top: 22px;
-    padding-top: 18px;
-    border-top: 1px solid var(--line);
+    margin-top: 20px;
     color: var(--muted);
     font-size: 12px;
     line-height: 1.7;
   }
+  .heat-tooltip {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 30;
+    max-width: min(320px, calc(100vw - 28px));
+    padding: 9px 11px;
+    border: 1px solid oklch(0.72 0.03 160);
+    border-radius: 8px;
+    background: oklch(0.2 0.026 165 / 0.96);
+    color: oklch(0.97 0.006 130);
+    font-size: 12px;
+    line-height: 1.45;
+    box-shadow: 0 18px 38px oklch(0.18 0.03 165 / 0.28);
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-999px, -999px);
+    transition: opacity 110ms ease;
+  }
+  .heat-tooltip.visible { opacity: 1; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -552,49 +581,76 @@
       transition-duration: 0.01ms !important;
     }
   }
-  @media (max-width: 940px) {
-    .hero,
+  @media (max-width: 1040px) {
+    .overview,
     .content-grid {
       grid-template-columns: 1fr;
     }
-    .stats-grid {
+    .today-panel {
+      min-height: 0;
+    }
+    .metric-strip {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+    .metric:nth-child(4) { border-left: 0; border-top: 1px solid var(--line); }
+    .metric:nth-child(5) { border-top: 1px solid var(--line); }
   }
-  @media (max-width: 640px) {
+  @media (max-width: 680px) {
+    :root {
+      --cell: 13px;
+      --gap: 4px;
+    }
     .shell {
-      width: min(100% - 22px, 1180px);
+      width: min(100% - 22px, 1280px);
       padding-top: 16px;
     }
-    .topbar {
+    .masthead {
       align-items: flex-start;
       flex-direction: column;
+    }
+    .brand-subtitle {
+      white-space: normal;
     }
     .repo-link {
       width: 100%;
       justify-content: center;
     }
-    .brand-subtitle {
-      white-space: normal;
+    .overview-copy,
+    .today-panel {
+      padding: 22px 18px;
     }
     h1 {
-      font-size: 30px;
+      font-size: 28px;
+      line-height: 1.13;
     }
-    .hero-main,
-    .pulse,
-    .panel-body,
-    .panel-head {
+    .today-number {
+      margin-top: 20px;
+      font-size: 64px;
+    }
+    .metric-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .metric {
+      border-top: 1px solid var(--line);
+    }
+    .metric:nth-child(-n + 2) {
+      border-top: 0;
+    }
+    .metric:nth-child(odd) {
+      border-left: 0;
+    }
+    .panel-head,
+    .panel-body {
       padding-left: 16px;
       padding-right: 16px;
     }
-    .pulse-number {
-      font-size: 66px;
-    }
-    .stats-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .panel-head {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 5px;
     }
     .platform-row {
-      grid-template-columns: 1fr 54px;
+      grid-template-columns: 1fr 48px;
       gap: 8px;
     }
     .platform-name {
@@ -613,12 +669,12 @@
 </head>
 <body>
 <div class="shell">
-  <header class="topbar">
+  <header class="masthead">
     <div class="brand">
       <div class="brand-mark" aria-hidden="true">ZW</div>
       <div>
         <span class="brand-title">ZoomWaterr 刷题面板</span>
-        <span class="brand-subtitle">Python 算法练习记录，按 push 自动更新</span>
+        <span class="brand-subtitle">Python 3.14 题解记录，随仓库 push 自动刷新</span>
       </div>
     </div>
     <a class="repo-link" id="repo-link" href="#" aria-label="打开 GitHub 仓库">
@@ -630,81 +686,98 @@
     </a>
   </header>
 
-  <section class="hero" aria-labelledby="dashboard-title">
-    <div class="hero-main">
-      <div>
-        <span class="eyebrow">practice dashboard</span>
-        <h1 id="dashboard-title">把刷题轨迹变成一张可以每天回看的地图。</h1>
-        <p class="lead">统计来自仓库里的题解文件和 git 历史。热力图按每天新增或修改的题目数上色，平台分布按目录实时汇总。</p>
+  <main>
+    <section class="overview" aria-labelledby="dashboard-title">
+      <div class="overview-copy">
+        <p class="eyebrow">practice ledger</p>
+        <h1 id="dashboard-title">把每天写过的题，沉到热力图里。</h1>
+        <p class="lead">面板读取题解目录和 git 历史。没有提交的日期也会保留为空白格，等下一次 push 时自动补齐到当天。</p>
+        <div class="hero-meta" id="hero-meta"></div>
       </div>
-      <div class="hero-meta" id="hero-meta"></div>
-    </div>
-    <aside class="pulse" aria-label="今日刷题摘要">
-      <div class="pulse-head">
-        <p class="pulse-title">今日题目变动</p>
-        <span class="pulse-date" id="today-label"></span>
-      </div>
-      <div class="pulse-number" id="today-files">0</div>
-      <div class="pulse-foot">
-        <div class="mini-stat"><span>当前连续</span><strong id="current-streak">0 天</strong></div>
-        <div class="mini-stat"><span>最长连续</span><strong id="longest-streak">0 天</strong></div>
-      </div>
-    </aside>
-  </section>
-
-  <section class="stats-grid" id="stats-grid" aria-label="刷题统计"></section>
-
-  <main class="content-grid">
-    <div>
-      <section class="panel" aria-labelledby="heatmap-title">
-        <div class="panel-head">
-          <h2 class="panel-title" id="heatmap-title">刷题热力图</h2>
-          <span class="panel-note" id="heatmap-note"></span>
+      <aside class="today-panel" aria-label="今日题解摘要">
+        <div>
+          <p class="today-kicker">今日题解变动</p>
+          <span class="today-date" id="today-label"></span>
         </div>
-        <div class="panel-body">
-          <div class="heatmap-wrap">
-            <div class="heatmap" id="heatmap"></div>
+        <div>
+          <div class="today-number" id="today-files">0</div>
+          <p class="today-copy" id="today-copy"></p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="metric-strip" id="metric-strip" aria-label="刷题统计"></section>
+
+    <section class="content-grid">
+      <div class="stack">
+        <section class="panel" aria-labelledby="heatmap-title">
+          <div class="panel-head">
+            <h2 class="panel-title" id="heatmap-title">刷题热力图</h2>
+            <span class="panel-note" id="heatmap-note"></span>
           </div>
-          <div class="legend" aria-label="热力图颜色图例">
-            <span class="legend-label">少</span>
-            <span class="h0"></span><span class="h1"></span><span class="h2"></span><span class="h3"></span><span class="h4"></span>
-            <span class="legend-label">多</span>
+          <div class="panel-body">
+            <div class="heatmap-wrap">
+              <div class="heatmap" id="heatmap"></div>
+            </div>
+            <div class="legend" aria-label="热力图颜色图例">
+              <span class="legend-label">少</span>
+              <span class="h0"></span><span class="h1"></span><span class="h2"></span><span class="h3"></span><span class="h4"></span>
+              <span class="legend-label">多</span>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="panel" aria-labelledby="activity-title">
-        <div class="panel-head">
-          <h2 class="panel-title" id="activity-title">最近活动</h2>
-          <span class="panel-note">只显示题解文件</span>
-        </div>
-        <div class="panel-body">
-          <div class="activity" id="activity"></div>
-        </div>
-      </section>
-    </div>
+        <section class="panel" aria-labelledby="activity-title">
+          <div class="panel-head">
+            <h2 class="panel-title" id="activity-title">最近活动</h2>
+            <span class="panel-note">只统计题解文件</span>
+          </div>
+          <div class="panel-body">
+            <div class="activity" id="activity"></div>
+          </div>
+        </section>
+      </div>
 
-    <aside>
-      <section class="panel" aria-labelledby="platform-title">
-        <div class="panel-head">
-          <h2 class="panel-title" id="platform-title">平台分布</h2>
-          <span class="panel-note">按目录扫描</span>
-        </div>
-        <div class="panel-body">
-          <div class="platforms" id="platforms"></div>
-        </div>
-      </section>
-    </aside>
+      <aside class="stack">
+        <section class="panel" aria-labelledby="rhythm-title">
+          <div class="panel-head">
+            <h2 class="panel-title" id="rhythm-title">连续性</h2>
+            <span class="panel-note">按自然日计算</span>
+          </div>
+          <div class="panel-body">
+            <div class="rhythm" id="rhythm"></div>
+            <p class="rhythm-copy" id="rhythm-copy"></p>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="platform-title">
+          <div class="panel-head">
+            <h2 class="panel-title" id="platform-title">平台分布</h2>
+            <span class="panel-note">按目录扫描</span>
+          </div>
+          <div class="panel-body">
+            <div class="platforms" id="platforms"></div>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <footer class="footer" id="footer"></footer>
   </main>
-
-  <footer class="footer" id="footer"></footer>
 </div>
+<div class="heat-tooltip" id="heat-tooltip" role="status" aria-live="polite"></div>
 
-<script type="application/json" id="dashboard-data">{"summary":{"grandTotal":108,"totalCommits":36,"activeDays":5,"currentStreak":0,"longestStreak":3,"todayFiles":0,"latestDay":{"date":"2026-05-22","commits":14,"files":4,"filenames":["洛谷/【入门3】循环结构/P1075 [NOIP 2012 普及组] 质因数分解.py","洛谷/【入门3】循环结构/P1420 最长连号.py","洛谷/【入门3】循环结构/P5725 【深基4.习8】求三角形.py","洛谷/【入门3】循环结构/P5726 【深基4.习9】打分.py"]},"bestDay":{"date":"2026-05-05","commits":8,"files":52,"filenames":["C语言网/算法练习题杂烩合集/1231 杨辉三角.py","C语言网/算法练习题杂烩合集/1257 超级楼梯.py","C语言网/算法练习题杂烩合集/1501 蓝桥杯算法提高VIP-分苹果.py","C语言网/算法练习题杂烩合集/2117 信息学奥赛一本通T1310-车厢重组.py","C语言网/算法练习题杂烩合集/2332 信息学奥赛一本通T1181-整数奇偶排序.py","C语言网/算法练习题杂烩合集/2809 菲波那契数列.py","C语言网/算法练习题杂烩合集/2911 连续出现的字符.py","C语言网/算法练习题杂烩合集/2961 最长单词2.py","C语言网/算法练习题杂烩合集/2973 出现次数超过一半的数.py","洛谷/【入门1】顺序结构/B2002 Hello,World!.py","洛谷/【入门1】顺序结构/B2005 字符三角形.py","洛谷/【入门1】顺序结构/B2025 输出字符菱形.py","洛谷/【入门1】顺序结构/B2029 大象喝水.py","洛谷/【入门1】顺序结构/P1000 超级玛丽游戏.py","洛谷/【入门1】顺序结构/P1001 A+B Problem.py","洛谷/【入门1】顺序结构/P1421 小玉买文具.py","洛谷/【入门1】顺序结构/P1425 小鱼的游泳时间.py","洛谷/【入门1】顺序结构/P3954 [NOIP 2017 普及组] 成绩.py","洛谷/【入门1】顺序结构/P5703 【深基2.例5】苹果采购.py","洛谷/【入门1】顺序结构/P5704 【深基2.例6】字母转换.py","洛谷/【入门1】顺序结构/P5705 【深基2.例7】数字反转.py","洛谷/【入门1】顺序结构/P5706 【深基2.例8】再分肥宅水.py","洛谷/【入门1】顺序结构/P5707 【深基2.例12】上学迟到.py","洛谷/【入门1】顺序结构/P5708 【深基2.习2】三角形面积.py","洛谷/【入门2】分支结构/P1046 [NOIP 2005 普及组] 陶陶摘苹果.py","洛谷/【入门2】分支结构/P1055 [NOIP 2008 普及组] ISBN 号码.py","洛谷/【入门2】分支结构/P1085 [NOIP 2004 普及组] 不高兴的津津.py","洛谷/【入门2】分支结构/P1422 小玉家的电费.py","洛谷/【入门2】分支结构/P1424 小鱼的航程（改进版）.py","洛谷/【入门2】分支结构/P1888 三角函数.py","洛谷/【入门2】分支结构/P1909 [NOIP 2016 普及组] 买铅笔.py","洛谷/【入门2】分支结构/P2433 【深基1-2】小学数学 N 合一.py","洛谷/【入门2】分支结构/P4414 [COCI 2006-2007 #2] ABC.py","洛谷/【入门2】分支结构/P5709 【深基2.习6】Apples Prologue  苹果和虫子.py","洛谷/【入门2】分支结构/P5710 【深基3.例2】数的性质.py","洛谷/【入门2】分支结构/P5711 【深基3.例3】闰年判断.py","洛谷/【入门2】分支结构/P5712 【深基3.例4】Apples.py","洛谷/【入门2】分支结构/P5713 【深基3.例5】洛谷团队系统.py","洛谷/【入门2】分支结构/P5714 【深基3.例7】肥胖问题.py","洛谷/【入门2】分支结构/P5715 【深基3.例8】三位数排序.py","洛谷/【入门2】分支结构/P5716 【深基3.例9】月份天数.py","洛谷/【入门2】分支结构/P5717 【深基3.习8】三角形分类.py","洛谷/【入门3】循环结构/P5718 【深基4.例2】找最小值.py","洛谷/【入门3】循环结构/P5719 【深基4.例3】分类平均.py","洛谷/【入门3】循环结构/P5720 【深基4.例4】一尺之棰.py","洛谷/【入门3】循环结构/P5721 【深基4.例6】数字直角三角形.py","蓝桥云课/16届省赛/LQ图形.py","蓝桥云课/16届省赛/攻击次数.py","蓝桥云课/16届省赛/最多次数.py","蓝桥云课/36周赛/2026【算法赛】.py","蓝桥云课/36周赛/平台优惠【算法赛】.py","蓝桥云课/36周赛/研究斐波那契【算法赛】.py"]}},"platforms":[{"name":"洛谷","total":52,"subdirs":[{"name":"【入门3】循环结构","count":19},{"name":"【入门2】分支结构","count":18},{"name":"【入门1】顺序结构","count":15}]},{"name":"C语言网","total":50,"subdirs":[{"name":"入门练习题合集","count":40},{"name":"算法练习题杂烩合集","count":10}]},{"name":"蓝桥云课","total":6,"subdirs":[{"name":"16届省赛","count":3},{"name":"36周赛","count":3}]}],"recent":[{"date":"2026-05-22","commits":14,"files":4,"filenames":["洛谷/【入门3】循环结构/P1075 [NOIP 2012 普及组] 质因数分解.py","洛谷/【入门3】循环结构/P1420 最长连号.py","洛谷/【入门3】循环结构/P5725 【深基4.习8】求三角形.py","洛谷/【入门3】循环结构/P5726 【深基4.习9】打分.py"]},{"date":"2026-05-12","commits":2,"files":9,"filenames":["C语言网/入门练习题合集/1001 [编程入门]第一个HelloWorld程序.py","C语言网/入门练习题合集/1002 [编程入门]三个数最大值.py","C语言网/入门练习题合集/1003 [编程入门]密码破译.py","C语言网/入门练习题合集/1005 [编程入门]温度转换.py","C语言网/入门练习题合集/1007 [编程入门]分段函数求值.py","C语言网/入门练习题合集/1008 [编程入门]成绩评定.py","洛谷/【入门3】循环结构/P1420 最长连号.py","洛谷/【入门3】循环结构/P1720 月落乌啼算钱（斐波那契数列）.py","洛谷/【入门3】循环结构/P5724 【深基4.习5】求极差  最大跨度值 最大值和最小值的差.py"]},{"date":"2026-05-07","commits":2,"files":10,"filenames":["洛谷/【入门3】循环结构/P1009 [NOIP 1998 普及组] 阶乘之和.py","洛谷/【入门3】循环结构/P1035 [NOIP 2002 普及组] 级数求和.py","洛谷/【入门3】循环结构/P1217 [USACO1.5] 回文质数 Prime Palindromes.py","洛谷/【入门3】循环结构/P1307 [NOIP 2011 普及组] 数字反转.py","洛谷/【入门3】循环结构/P1423 小玉在游泳.py","洛谷/【入门3】循环结构/P1980 [NOIP 2013 普及组] 计数问题.py","洛谷/【入门3】循环结构/P2669 [NOIP 2015 普及组] 金币.py","洛谷/【入门3】循环结构/P5721 【深基4.例6】数字直角三角形.py","洛谷/【入门3】循环结构/P5722 【深基4.例11】数列求和.py","洛谷/【入门3】循环结构/P5723 【深基4.例13】质数口袋.py"]},{"date":"2026-05-06","commits":8,"files":36,"filenames":["C语言网/入门练习题合集/1009 数字的处理和判断.py","C语言网/入门练习题合集/1010 利润计算.py","C语言网/入门练习题合集/1011 [编程入门] 最大公约数与最小公倍数.py","C语言网/入门练习题合集/1012 [编程入门] 字符串分类统计.py","C语言网/入门练习题合集/1013 [编程入门] Sn的公式求和.py","C语言网/入门练习题合集/1014 [编程入门] 阶乘求和.py","C语言网/入门练习题合集/1015 [编程入门] 求和训练.py","C语言网/入门练习题合集/1016 [编程入门] 水仙花数判断.py","C语言网/入门练习题合集/1022 [编程入门] 筛选N以内的素数.py","C语言网/入门练习题合集/1024 [编程入门] 矩阵对角线求和.py","C语言网/入门练习题合集/1026 [编程入门] 数字逆序输出.py","C语言网/入门练习题合集/1030 [编程入门] 二维数组的转置.py","C语言网/入门练习题合集/1055 二级C语言-进制转换.py","C语言网/入门练习题合集/1098 陶陶摘苹果.py","C语言网/入门练习题合集/1124 C语言训练-大、小写问题.py","C语言网/入门练习题合集/1126 C语言训练-字符串正反连接.py","C语言网/入门练习题合集/1151 C语言训练-计算一个整数N的阶乘.py","C语言网/入门练习题合集/1242 矩阵转置.py","C语言网/入门练习题合集/1999 回文判断.py","C语言网/入门练习题合集/2764 带余除法.py","C语言网/入门练习题合集/2784 收集瓶盖赢大奖.py","C语言网/入门练习题合集/2799 奥运奖牌计数.py","C语言网/入门练习题合集/2816 统计满足条件的4位数个数.py","C语言网/入门练习题合集/2818 分离整数的各个数位.py","C语言网/入门练习题合集/2833 金币.py","C语言网/入门练习题合集/2836 数组逆序重放.py","C语言网/入门练习题合集/2870 单词翻转.py","C语言网/入门练习题合集/2901 查找特定的值.py","C语言网/入门练习题合集/2903 不高兴的津津.py","C语言网/入门练习题合集/2905 最大值和最小值的差.py","C语言网/入门练习题合集/2907 不与最大数相同的数字之和.py","C语言网/入门练习题合集/2998 电影票.py","C语言网/入门练习题合集/3004 成绩.py","C语言网/入门练习题合集/3009 判断闰年.py","C语言网/算法练习题杂烩合集/2117 信息学奥赛一本通T1310-车厢重组.py","C语言网/算法练习题杂烩合集/2974 统计字符数.py"]},{"date":"2026-05-05","commits":8,"files":52,"filenames":["C语言网/算法练习题杂烩合集/1231 杨辉三角.py","C语言网/算法练习题杂烩合集/1257 超级楼梯.py","C语言网/算法练习题杂烩合集/1501 蓝桥杯算法提高VIP-分苹果.py","C语言网/算法练习题杂烩合集/2117 信息学奥赛一本通T1310-车厢重组.py","C语言网/算法练习题杂烩合集/2332 信息学奥赛一本通T1181-整数奇偶排序.py","C语言网/算法练习题杂烩合集/2809 菲波那契数列.py","C语言网/算法练习题杂烩合集/2911 连续出现的字符.py","C语言网/算法练习题杂烩合集/2961 最长单词2.py","C语言网/算法练习题杂烩合集/2973 出现次数超过一半的数.py","洛谷/【入门1】顺序结构/B2002 Hello,World!.py","洛谷/【入门1】顺序结构/B2005 字符三角形.py","洛谷/【入门1】顺序结构/B2025 输出字符菱形.py","洛谷/【入门1】顺序结构/B2029 大象喝水.py","洛谷/【入门1】顺序结构/P1000 超级玛丽游戏.py","洛谷/【入门1】顺序结构/P1001 A+B Problem.py","洛谷/【入门1】顺序结构/P1421 小玉买文具.py","洛谷/【入门1】顺序结构/P1425 小鱼的游泳时间.py","洛谷/【入门1】顺序结构/P3954 [NOIP 2017 普及组] 成绩.py","洛谷/【入门1】顺序结构/P5703 【深基2.例5】苹果采购.py","洛谷/【入门1】顺序结构/P5704 【深基2.例6】字母转换.py","洛谷/【入门1】顺序结构/P5705 【深基2.例7】数字反转.py","洛谷/【入门1】顺序结构/P5706 【深基2.例8】再分肥宅水.py","洛谷/【入门1】顺序结构/P5707 【深基2.例12】上学迟到.py","洛谷/【入门1】顺序结构/P5708 【深基2.习2】三角形面积.py","洛谷/【入门2】分支结构/P1046 [NOIP 2005 普及组] 陶陶摘苹果.py","洛谷/【入门2】分支结构/P1055 [NOIP 2008 普及组] ISBN 号码.py","洛谷/【入门2】分支结构/P1085 [NOIP 2004 普及组] 不高兴的津津.py","洛谷/【入门2】分支结构/P1422 小玉家的电费.py","洛谷/【入门2】分支结构/P1424 小鱼的航程（改进版）.py","洛谷/【入门2】分支结构/P1888 三角函数.py","洛谷/【入门2】分支结构/P1909 [NOIP 2016 普及组] 买铅笔.py","洛谷/【入门2】分支结构/P2433 【深基1-2】小学数学 N 合一.py","洛谷/【入门2】分支结构/P4414 [COCI 2006-2007 #2] ABC.py","洛谷/【入门2】分支结构/P5709 【深基2.习6】Apples Prologue  苹果和虫子.py","洛谷/【入门2】分支结构/P5710 【深基3.例2】数的性质.py","洛谷/【入门2】分支结构/P5711 【深基3.例3】闰年判断.py","洛谷/【入门2】分支结构/P5712 【深基3.例4】Apples.py","洛谷/【入门2】分支结构/P5713 【深基3.例5】洛谷团队系统.py","洛谷/【入门2】分支结构/P5714 【深基3.例7】肥胖问题.py","洛谷/【入门2】分支结构/P5715 【深基3.例8】三位数排序.py","洛谷/【入门2】分支结构/P5716 【深基3.例9】月份天数.py","洛谷/【入门2】分支结构/P5717 【深基3.习8】三角形分类.py","洛谷/【入门3】循环结构/P5718 【深基4.例2】找最小值.py","洛谷/【入门3】循环结构/P5719 【深基4.例3】分类平均.py","洛谷/【入门3】循环结构/P5720 【深基4.例4】一尺之棰.py","洛谷/【入门3】循环结构/P5721 【深基4.例6】数字直角三角形.py","蓝桥云课/16届省赛/LQ图形.py","蓝桥云课/16届省赛/攻击次数.py","蓝桥云课/16届省赛/最多次数.py","蓝桥云课/36周赛/2026【算法赛】.py","蓝桥云课/36周赛/平台优惠【算法赛】.py","蓝桥云课/36周赛/研究斐波那契【算法赛】.py"]}],"heatmap":{"2026-05-23":{"files":0,"commits":2},"2026-05-22":{"files":4,"commits":14},"2026-05-12":{"files":9,"commits":2},"2026-05-07":{"files":10,"commits":2},"2026-05-06":{"files":36,"commits":8},"2026-05-05":{"files":52,"commits":8}},"firstCommit":"2026-05-05","today":"2026-05-23","rangeStart":"2025-11-22","updatedAt":"2026-05-23 00:08 CST","repoUrl":"https://github.com/ZoomWaterr/python-algo-practice"}</script>
+<script type="application/json" id="dashboard-data">{"summary":{"grandTotal":108,"solutionCommits":11,"activeDays":5,"spanDays":19,"currentStreak":0,"longestStreak":3,"todayFiles":0,"idleDays":1,"latestDay":{"date":"2026-05-22","commits":1,"files":4,"filenames":["洛谷/【入门3】循环结构/P1075 [NOIP 2012 普及组] 质因数分解.py","洛谷/【入门3】循环结构/P1420 最长连号.py","洛谷/【入门3】循环结构/P5725 【深基4.习8】求三角形.py","洛谷/【入门3】循环结构/P5726 【深基4.习9】打分.py"]},"bestDay":{"date":"2026-05-05","commits":6,"files":52,"filenames":["C语言网/算法练习题杂烩合集/1231 杨辉三角.py","C语言网/算法练习题杂烩合集/1257 超级楼梯.py","C语言网/算法练习题杂烩合集/1501 蓝桥杯算法提高VIP-分苹果.py","C语言网/算法练习题杂烩合集/2117 信息学奥赛一本通T1310-车厢重组.py","C语言网/算法练习题杂烩合集/2332 信息学奥赛一本通T1181-整数奇偶排序.py","C语言网/算法练习题杂烩合集/2809 菲波那契数列.py","C语言网/算法练习题杂烩合集/2911 连续出现的字符.py","C语言网/算法练习题杂烩合集/2961 最长单词2.py","C语言网/算法练习题杂烩合集/2973 出现次数超过一半的数.py","洛谷/【入门1】顺序结构/B2002 Hello,World!.py","洛谷/【入门1】顺序结构/B2005 字符三角形.py","洛谷/【入门1】顺序结构/B2025 输出字符菱形.py","洛谷/【入门1】顺序结构/B2029 大象喝水.py","洛谷/【入门1】顺序结构/P1000 超级玛丽游戏.py","洛谷/【入门1】顺序结构/P1001 A+B Problem.py","洛谷/【入门1】顺序结构/P1421 小玉买文具.py","洛谷/【入门1】顺序结构/P1425 小鱼的游泳时间.py","洛谷/【入门1】顺序结构/P3954 [NOIP 2017 普及组] 成绩.py","洛谷/【入门1】顺序结构/P5703 【深基2.例5】苹果采购.py","洛谷/【入门1】顺序结构/P5704 【深基2.例6】字母转换.py","洛谷/【入门1】顺序结构/P5705 【深基2.例7】数字反转.py","洛谷/【入门1】顺序结构/P5706 【深基2.例8】再分肥宅水.py","洛谷/【入门1】顺序结构/P5707 【深基2.例12】上学迟到.py","洛谷/【入门1】顺序结构/P5708 【深基2.习2】三角形面积.py","洛谷/【入门2】分支结构/P1046 [NOIP 2005 普及组] 陶陶摘苹果.py","洛谷/【入门2】分支结构/P1055 [NOIP 2008 普及组] ISBN 号码.py","洛谷/【入门2】分支结构/P1085 [NOIP 2004 普及组] 不高兴的津津.py","洛谷/【入门2】分支结构/P1422 小玉家的电费.py","洛谷/【入门2】分支结构/P1424 小鱼的航程（改进版）.py","洛谷/【入门2】分支结构/P1888 三角函数.py","洛谷/【入门2】分支结构/P1909 [NOIP 2016 普及组] 买铅笔.py","洛谷/【入门2】分支结构/P2433 【深基1-2】小学数学 N 合一.py","洛谷/【入门2】分支结构/P4414 [COCI 2006-2007 #2] ABC.py","洛谷/【入门2】分支结构/P5709 【深基2.习6】Apples Prologue  苹果和虫子.py","洛谷/【入门2】分支结构/P5710 【深基3.例2】数的性质.py","洛谷/【入门2】分支结构/P5711 【深基3.例3】闰年判断.py","洛谷/【入门2】分支结构/P5712 【深基3.例4】Apples.py","洛谷/【入门2】分支结构/P5713 【深基3.例5】洛谷团队系统.py","洛谷/【入门2】分支结构/P5714 【深基3.例7】肥胖问题.py","洛谷/【入门2】分支结构/P5715 【深基3.例8】三位数排序.py","洛谷/【入门2】分支结构/P5716 【深基3.例9】月份天数.py","洛谷/【入门2】分支结构/P5717 【深基3.习8】三角形分类.py","洛谷/【入门3】循环结构/P5718 【深基4.例2】找最小值.py","洛谷/【入门3】循环结构/P5719 【深基4.例3】分类平均.py","洛谷/【入门3】循环结构/P5720 【深基4.例4】一尺之棰.py","洛谷/【入门3】循环结构/P5721 【深基4.例6】数字直角三角形.py","蓝桥云课/16届省赛/LQ图形.py","蓝桥云课/16届省赛/攻击次数.py","蓝桥云课/16届省赛/最多次数.py","蓝桥云课/36周赛/2026【算法赛】.py","蓝桥云课/36周赛/平台优惠【算法赛】.py","蓝桥云课/36周赛/研究斐波那契【算法赛】.py"]}},"platforms":[{"name":"洛谷","total":52,"subdirs":[{"name":"【入门3】循环结构","count":19},{"name":"【入门2】分支结构","count":18},{"name":"【入门1】顺序结构","count":15}]},{"name":"C语言网","total":50,"subdirs":[{"name":"入门练习题合集","count":40},{"name":"算法练习题杂烩合集","count":10}]},{"name":"蓝桥云课","total":6,"subdirs":[{"name":"16届省赛","count":3},{"name":"36周赛","count":3}]}],"recent":[{"date":"2026-05-22","commits":1,"files":4,"filenames":["洛谷/【入门3】循环结构/P1075 [NOIP 2012 普及组] 质因数分解.py","洛谷/【入门3】循环结构/P1420 最长连号.py","洛谷/【入门3】循环结构/P5725 【深基4.习8】求三角形.py","洛谷/【入门3】循环结构/P5726 【深基4.习9】打分.py"]},{"date":"2026-05-12","commits":1,"files":9,"filenames":["C语言网/入门练习题合集/1001 [编程入门]第一个HelloWorld程序.py","C语言网/入门练习题合集/1002 [编程入门]三个数最大值.py","C语言网/入门练习题合集/1003 [编程入门]密码破译.py","C语言网/入门练习题合集/1005 [编程入门]温度转换.py","C语言网/入门练习题合集/1007 [编程入门]分段函数求值.py","C语言网/入门练习题合集/1008 [编程入门]成绩评定.py","洛谷/【入门3】循环结构/P1420 最长连号.py","洛谷/【入门3】循环结构/P1720 月落乌啼算钱（斐波那契数列）.py","洛谷/【入门3】循环结构/P5724 【深基4.习5】求极差  最大跨度值 最大值和最小值的差.py"]},{"date":"2026-05-07","commits":2,"files":10,"filenames":["洛谷/【入门3】循环结构/P1009 [NOIP 1998 普及组] 阶乘之和.py","洛谷/【入门3】循环结构/P1035 [NOIP 2002 普及组] 级数求和.py","洛谷/【入门3】循环结构/P1217 [USACO1.5] 回文质数 Prime Palindromes.py","洛谷/【入门3】循环结构/P1307 [NOIP 2011 普及组] 数字反转.py","洛谷/【入门3】循环结构/P1423 小玉在游泳.py","洛谷/【入门3】循环结构/P1980 [NOIP 2013 普及组] 计数问题.py","洛谷/【入门3】循环结构/P2669 [NOIP 2015 普及组] 金币.py","洛谷/【入门3】循环结构/P5721 【深基4.例6】数字直角三角形.py","洛谷/【入门3】循环结构/P5722 【深基4.例11】数列求和.py","洛谷/【入门3】循环结构/P5723 【深基4.例13】质数口袋.py"]},{"date":"2026-05-06","commits":1,"files":36,"filenames":["C语言网/入门练习题合集/1009 数字的处理和判断.py","C语言网/入门练习题合集/1010 利润计算.py","C语言网/入门练习题合集/1011 [编程入门] 最大公约数与最小公倍数.py","C语言网/入门练习题合集/1012 [编程入门] 字符串分类统计.py","C语言网/入门练习题合集/1013 [编程入门] Sn的公式求和.py","C语言网/入门练习题合集/1014 [编程入门] 阶乘求和.py","C语言网/入门练习题合集/1015 [编程入门] 求和训练.py","C语言网/入门练习题合集/1016 [编程入门] 水仙花数判断.py","C语言网/入门练习题合集/1022 [编程入门] 筛选N以内的素数.py","C语言网/入门练习题合集/1024 [编程入门] 矩阵对角线求和.py","C语言网/入门练习题合集/1026 [编程入门] 数字逆序输出.py","C语言网/入门练习题合集/1030 [编程入门] 二维数组的转置.py","C语言网/入门练习题合集/1055 二级C语言-进制转换.py","C语言网/入门练习题合集/1098 陶陶摘苹果.py","C语言网/入门练习题合集/1124 C语言训练-大、小写问题.py","C语言网/入门练习题合集/1126 C语言训练-字符串正反连接.py","C语言网/入门练习题合集/1151 C语言训练-计算一个整数N的阶乘.py","C语言网/入门练习题合集/1242 矩阵转置.py","C语言网/入门练习题合集/1999 回文判断.py","C语言网/入门练习题合集/2764 带余除法.py","C语言网/入门练习题合集/2784 收集瓶盖赢大奖.py","C语言网/入门练习题合集/2799 奥运奖牌计数.py","C语言网/入门练习题合集/2816 统计满足条件的4位数个数.py","C语言网/入门练习题合集/2818 分离整数的各个数位.py","C语言网/入门练习题合集/2833 金币.py","C语言网/入门练习题合集/2836 数组逆序重放.py","C语言网/入门练习题合集/2870 单词翻转.py","C语言网/入门练习题合集/2901 查找特定的值.py","C语言网/入门练习题合集/2903 不高兴的津津.py","C语言网/入门练习题合集/2905 最大值和最小值的差.py","C语言网/入门练习题合集/2907 不与最大数相同的数字之和.py","C语言网/入门练习题合集/2998 电影票.py","C语言网/入门练习题合集/3004 成绩.py","C语言网/入门练习题合集/3009 判断闰年.py","C语言网/算法练习题杂烩合集/2117 信息学奥赛一本通T1310-车厢重组.py","C语言网/算法练习题杂烩合集/2974 统计字符数.py"]},{"date":"2026-05-05","commits":6,"files":52,"filenames":["C语言网/算法练习题杂烩合集/1231 杨辉三角.py","C语言网/算法练习题杂烩合集/1257 超级楼梯.py","C语言网/算法练习题杂烩合集/1501 蓝桥杯算法提高VIP-分苹果.py","C语言网/算法练习题杂烩合集/2117 信息学奥赛一本通T1310-车厢重组.py","C语言网/算法练习题杂烩合集/2332 信息学奥赛一本通T1181-整数奇偶排序.py","C语言网/算法练习题杂烩合集/2809 菲波那契数列.py","C语言网/算法练习题杂烩合集/2911 连续出现的字符.py","C语言网/算法练习题杂烩合集/2961 最长单词2.py","C语言网/算法练习题杂烩合集/2973 出现次数超过一半的数.py","洛谷/【入门1】顺序结构/B2002 Hello,World!.py","洛谷/【入门1】顺序结构/B2005 字符三角形.py","洛谷/【入门1】顺序结构/B2025 输出字符菱形.py","洛谷/【入门1】顺序结构/B2029 大象喝水.py","洛谷/【入门1】顺序结构/P1000 超级玛丽游戏.py","洛谷/【入门1】顺序结构/P1001 A+B Problem.py","洛谷/【入门1】顺序结构/P1421 小玉买文具.py","洛谷/【入门1】顺序结构/P1425 小鱼的游泳时间.py","洛谷/【入门1】顺序结构/P3954 [NOIP 2017 普及组] 成绩.py","洛谷/【入门1】顺序结构/P5703 【深基2.例5】苹果采购.py","洛谷/【入门1】顺序结构/P5704 【深基2.例6】字母转换.py","洛谷/【入门1】顺序结构/P5705 【深基2.例7】数字反转.py","洛谷/【入门1】顺序结构/P5706 【深基2.例8】再分肥宅水.py","洛谷/【入门1】顺序结构/P5707 【深基2.例12】上学迟到.py","洛谷/【入门1】顺序结构/P5708 【深基2.习2】三角形面积.py","洛谷/【入门2】分支结构/P1046 [NOIP 2005 普及组] 陶陶摘苹果.py","洛谷/【入门2】分支结构/P1055 [NOIP 2008 普及组] ISBN 号码.py","洛谷/【入门2】分支结构/P1085 [NOIP 2004 普及组] 不高兴的津津.py","洛谷/【入门2】分支结构/P1422 小玉家的电费.py","洛谷/【入门2】分支结构/P1424 小鱼的航程（改进版）.py","洛谷/【入门2】分支结构/P1888 三角函数.py","洛谷/【入门2】分支结构/P1909 [NOIP 2016 普及组] 买铅笔.py","洛谷/【入门2】分支结构/P2433 【深基1-2】小学数学 N 合一.py","洛谷/【入门2】分支结构/P4414 [COCI 2006-2007 #2] ABC.py","洛谷/【入门2】分支结构/P5709 【深基2.习6】Apples Prologue  苹果和虫子.py","洛谷/【入门2】分支结构/P5710 【深基3.例2】数的性质.py","洛谷/【入门2】分支结构/P5711 【深基3.例3】闰年判断.py","洛谷/【入门2】分支结构/P5712 【深基3.例4】Apples.py","洛谷/【入门2】分支结构/P5713 【深基3.例5】洛谷团队系统.py","洛谷/【入门2】分支结构/P5714 【深基3.例7】肥胖问题.py","洛谷/【入门2】分支结构/P5715 【深基3.例8】三位数排序.py","洛谷/【入门2】分支结构/P5716 【深基3.例9】月份天数.py","洛谷/【入门2】分支结构/P5717 【深基3.习8】三角形分类.py","洛谷/【入门3】循环结构/P5718 【深基4.例2】找最小值.py","洛谷/【入门3】循环结构/P5719 【深基4.例3】分类平均.py","洛谷/【入门3】循环结构/P5720 【深基4.例4】一尺之棰.py","洛谷/【入门3】循环结构/P5721 【深基4.例6】数字直角三角形.py","蓝桥云课/16届省赛/LQ图形.py","蓝桥云课/16届省赛/攻击次数.py","蓝桥云课/16届省赛/最多次数.py","蓝桥云课/36周赛/2026【算法赛】.py","蓝桥云课/36周赛/平台优惠【算法赛】.py","蓝桥云课/36周赛/研究斐波那契【算法赛】.py"]}],"heatmap":{"2026-05-22":{"files":4,"commits":1},"2026-05-12":{"files":9,"commits":1},"2026-05-07":{"files":10,"commits":2},"2026-05-06":{"files":36,"commits":1},"2026-05-05":{"files":52,"commits":6}},"firstActive":"2026-05-05","today":"2026-05-23","rangeStart":"2025-11-22","updatedAt":"2026-05-23 03:09 CST","repoUrl":"https://github.com/ZoomWaterr/python-algo-practice"}</script>
 <script>
 (() => {
   const DATA = JSON.parse(document.getElementById("dashboard-data").textContent);
   const summary = DATA.summary;
+  const platformColors = [
+    "var(--green)",
+    "var(--blue)",
+    "var(--copper)",
+    "var(--rose)",
+  ];
 
   const escapeHtml = (value) => String(value)
     .replaceAll("&", "&amp;")
@@ -740,32 +813,38 @@
     return 4;
   };
 
+  const dayPhrase = (days) => {
+    if (days === 0) return "今天有记录，热力图最右侧已经上色。";
+    if (days === 1) return "今天还没有题解变动，空白格已经自动补上。";
+    return `已经 ${days} 天没有题解变动，下一次 push 会把中间空白天数一起补齐。`;
+  };
+
   document.getElementById("repo-link").href = DATA.repoUrl;
   document.getElementById("today-label").textContent = DATA.today;
   document.getElementById("today-files").textContent = summary.todayFiles;
-  document.getElementById("current-streak").textContent = `${summary.currentStreak} 天`;
-  document.getElementById("longest-streak").textContent = `${summary.longestStreak} 天`;
+  document.getElementById("today-copy").textContent = dayPhrase(summary.idleDays);
 
   const latest = summary.latestDay;
   const best = summary.bestDay || {};
   document.getElementById("hero-meta").innerHTML = [
-    ["首次提交", DATA.firstCommit || "暂无"],
+    ["首次记录", DATA.firstActive || "暂无"],
     ["最近活跃", latest ? latest.date : "暂无"],
     ["单日最高", best.date ? `${best.files} 题` : "暂无"],
     ["更新时间", DATA.updatedAt],
   ].map(([label, value]) => `<span class="meta-pill">${label}<strong>${escapeHtml(value)}</strong></span>`).join("");
 
-  const statItems = [
-    ["总题数", summary.grandTotal],
-    ["总提交", summary.totalCommits],
-    ["活跃天", summary.activeDays],
-    ["当前连续", summary.currentStreak],
-    ["最长连续", summary.longestStreak],
+  const metrics = [
+    ["总题数", summary.grandTotal, "题解文件"],
+    ["题解提交", summary.solutionCommits, "只算题解变动"],
+    ["活跃天", summary.activeDays, `${summary.spanDays} 天跨度`],
+    ["当前连续", `${summary.currentStreak} 天`, summary.currentStreak ? "保持中" : "等待今天开张"],
+    ["最长连续", `${summary.longestStreak} 天`, "历史最佳"],
   ];
-  document.getElementById("stats-grid").innerHTML = statItems.map(([label, value]) => `
-    <article class="stat-card">
-      <div class="stat-label">${label}</div>
-      <div class="stat-value">${value}</div>
+  document.getElementById("metric-strip").innerHTML = metrics.map(([label, value, note]) => `
+    <article class="metric">
+      <div class="metric-label">${escapeHtml(label)}</div>
+      <div class="metric-value">${escapeHtml(value)}</div>
+      <div class="metric-note">${escapeHtml(note)}</div>
     </article>
   `).join("");
 
@@ -778,14 +857,17 @@
     const weeks = Math.max(1, Math.ceil(totalDays / 7));
     const heatmap = DATA.heatmap || {};
     let monthHtml = "";
-    let lastMonth = -1;
     let weekHtml = "";
 
     for (let week = 0; week < weeks; week += 1) {
       const weekStart = addDays(alignedStart, week * 7);
-      const monthChanged = weekStart.getMonth() !== lastMonth;
-      monthHtml += `<span class="month-label">${monthChanged ? monthName(weekStart) : ""}</span>`;
-      if (monthChanged) lastMonth = weekStart.getMonth();
+      let monthLabel = "";
+      for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+        const day = addDays(weekStart, dayIndex);
+        if (week === 0 && dayIndex === 0) monthLabel = monthName(day);
+        if (day.getDate() === 1) monthLabel = monthName(day);
+      }
+      monthHtml += `<span class="month-label">${monthLabel}</span>`;
 
       let cells = "";
       for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
@@ -799,17 +881,18 @@
         const files = Number(item.files || 0);
         const commits = Number(item.commits || 0);
         const tip = files > 0
-          ? `${key}: ${files} 题, ${commits} 次提交`
+          ? `${key}: ${files} 题, ${commits} 次题解提交`
           : `${key}: 无题解变动`;
-        cells += `<span class="cell h${level(files)}" title="${escapeHtml(tip)}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}"></span>`;
+        cells += `<span class="cell h${level(files)}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}"></span>`;
       }
       weekHtml += `<span class="week">${cells}</span>`;
     }
 
     const activeRange = `${formatDate(alignedStart)} 至 ${DATA.today}`;
+    const heatmapEl = document.getElementById("heatmap");
     document.getElementById("heatmap-note").textContent = activeRange;
-    document.getElementById("heatmap").style.setProperty("--weeks", weeks);
-    document.getElementById("heatmap").innerHTML = `
+    heatmapEl.style.setProperty("--weeks", weeks);
+    heatmapEl.innerHTML = `
       <div class="month-row">${monthHtml}</div>
       <div class="heatmap-body">
         <div class="day-labels" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
@@ -818,9 +901,17 @@
     `;
   }
 
+  function renderRhythm() {
+    document.getElementById("rhythm").innerHTML = `
+      <div class="rhythm-item"><span>当前连续</span><strong>${summary.currentStreak} 天</strong></div>
+      <div class="rhythm-item"><span>最长连续</span><strong>${summary.longestStreak} 天</strong></div>
+    `;
+    document.getElementById("rhythm-copy").textContent = dayPhrase(summary.idleDays);
+  }
+
   function renderPlatforms() {
     const maxTotal = Math.max(...DATA.platforms.map((platform) => platform.total), 1);
-    document.getElementById("platforms").innerHTML = DATA.platforms.map((platform) => {
+    document.getElementById("platforms").innerHTML = DATA.platforms.map((platform, index) => {
       const pct = `${Math.max(8, Math.round((platform.total / maxTotal) * 100))}%`;
       const subdirs = (platform.subdirs || []).map((subdir) => `
         <span class="tag">${escapeHtml(subdir.name)}<strong>${subdir.count}</strong></span>
@@ -828,7 +919,7 @@
       return `
         <div class="platform-row">
           <div class="platform-name">${escapeHtml(platform.name)}</div>
-          <div class="bar-track"><div class="bar-fill" style="--pct:${pct}"></div></div>
+          <div class="bar-track"><div class="bar-fill" style="--pct:${pct};--accent:${platformColors[index % platformColors.length]}"></div></div>
           <div class="platform-count">${platform.total}</div>
           <div class="subdir-list">${subdirs}</div>
         </div>
@@ -855,7 +946,7 @@
         <article class="activity-row">
           <time class="activity-date" datetime="${escapeHtml(item.date)}">${escapeHtml(item.date.slice(5))}</time>
           <div class="activity-main">
-            <div class="activity-title">${item.files} 题 <span>${item.commits} 次提交</span></div>
+            <div class="activity-title">${item.files} 题 <span>${item.commits} 次题解提交</span></div>
             <div class="file-list">${files}${more}</div>
           </div>
         </article>
@@ -863,13 +954,65 @@
     }).join("");
   }
 
+  function wireHeatTooltip() {
+    const heatmap = document.getElementById("heatmap");
+    const tooltip = document.getElementById("heat-tooltip");
+    let activeCell = null;
+
+    const position = (event) => {
+      const margin = 14;
+      const rect = tooltip.getBoundingClientRect();
+      let x = event.clientX + 14;
+      let y = event.clientY - rect.height - 14;
+
+      if (x + rect.width > window.innerWidth - margin) {
+        x = event.clientX - rect.width - 14;
+      }
+      if (y < margin) {
+        y = event.clientY + 14;
+      }
+      x = Math.max(margin, Math.min(x, window.innerWidth - rect.width - margin));
+      y = Math.max(margin, Math.min(y, window.innerHeight - rect.height - margin));
+      tooltip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    };
+
+    const show = (cell, event) => {
+      activeCell = cell;
+      tooltip.textContent = cell.dataset.tip || "";
+      tooltip.classList.add("visible");
+      position(event);
+    };
+
+    const hide = () => {
+      activeCell = null;
+      tooltip.classList.remove("visible");
+      tooltip.style.transform = "translate(-999px, -999px)";
+    };
+
+    heatmap.addEventListener("pointerover", (event) => {
+      const cell = event.target.closest(".cell[data-tip]");
+      if (!cell || !heatmap.contains(cell)) return;
+      show(cell, event);
+    });
+    heatmap.addEventListener("pointermove", (event) => {
+      if (activeCell) position(event);
+    });
+    heatmap.addEventListener("pointerout", (event) => {
+      const next = event.relatedTarget;
+      if (activeCell && (!next || !activeCell.contains(next))) hide();
+    });
+    window.addEventListener("scroll", hide, { passive: true });
+    window.addEventListener("resize", hide);
+  }
+
   renderHeatmap();
+  renderRhythm();
   renderPlatforms();
   renderActivity();
+  wireHeatTooltip();
 
   document.getElementById("footer").innerHTML = `
-    由 <strong>stats_dashboard.py</strong> 生成，GitHub Actions 每次 push 后部署到 Pages。
-    数据范围从 ${escapeHtml(DATA.firstCommit || DATA.rangeStart)} 开始，页面生成时间为 ${escapeHtml(DATA.updatedAt)}。
+    由 <strong>stats_dashboard.py</strong> 生成。页面每次 push 后重建，统计范围从 ${escapeHtml(DATA.firstActive || DATA.rangeStart)} 到 ${escapeHtml(DATA.today)}，生成时间 ${escapeHtml(DATA.updatedAt)}。
   `;
 })();
 </script>
