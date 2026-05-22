@@ -28,6 +28,7 @@ TRACK = {
 ROOT_EXCLUDE = {
     "stats.py",          # 本脚本
     "generate_readme.py",# 可能的生成脚本
+    "stats_dashboard.py",# GitHub Pages 面板生成器
 }
 # 文件名包含这些关键词的会被跳过
 EXCLUDE_KEYWORDS = [
@@ -234,19 +235,28 @@ def build_stats_markdown(counts: dict, daily_files: dict) -> str:
     grand = sum(c.get("_total", 0) for c in counts.values())
 
     lines = []
-    lines.append("| 平台 | 题数 |")
-    lines.append("|------|------|")
+    lines.append("<table>")
+    lines.append("  <tr>")
     for label, cats in counts.items():
         t = cats.get("_total", 0)
-        lines.append(f"| [{label}](./{label}/) | {t} |")
-    lines.append(f"| **总计** | **{grand}** |")
+        lines.append(
+            f'    <td align="center"><a href="./{label}/"><b>{label}</b></a><br><sub>{t} 题</sub></td>'
+        )
+    lines.append(f'    <td align="center"><b>总计</b><br><sub>{grand} 题</sub></td>')
+    lines.append("  </tr>")
+    lines.append("</table>")
     lines.append("")
 
     if daily_files:
-        lines.append("**最近刷题记录**")
+        lines.append("<details>")
+        lines.append("<summary>最近刷题记录</summary>")
         lines.append("")
+        lines.append("| 日期 | 题数 |")
+        lines.append("| --- | ---: |")
         for day, files in sorted(daily_files.items(), reverse=True)[:7]:
-            lines.append(f"- {day}  +{len(files)} 题")
+            lines.append(f"| {day} | +{len(files)} |")
+        lines.append("")
+        lines.append("</details>")
 
     return "\n".join(lines)
 

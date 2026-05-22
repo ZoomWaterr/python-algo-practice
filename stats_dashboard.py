@@ -1,128 +1,255 @@
 """
-刷题数据可视化面板 v5
-- 纯手写 GitHub 像素级热力图，无需第三方依赖
-- 清新暖色主题
+Generate the GitHub Pages dashboard for the algorithm practice repository.
+
+The page is a single static HTML file with no third-party dependencies. Data
+comes from the repository tree and git history, so every push can rebuild the
+dashboard in GitHub Actions.
 """
+
+from __future__ import annotations
+
 import json
 import subprocess
-from pathlib import Path
 from collections import defaultdict
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
 
 ROOT = Path(__file__).parent
-TRACK = {"洛谷": "洛谷", "C语言网": "C语言网", "蓝桥云课": "蓝桥云课"}
-ROOT_EXCLUDE = {"stats.py", "generate_readme.py", "stats_dashboard.py"}
-EXCLUDE_KEYWORDS = ["temp", "__pycache__"]
+TRACK = {
+    "洛谷": "洛谷",
+    "C语言网": "C语言网",
+    "蓝桥云课": "蓝桥云课",
+}
+ROOT_EXCLUDE = {
+    "stats.py",
+    "generate_readme.py",
+    "stats_dashboard.py",
+}
+EXCLUDE_KEYWORDS = {"temp", "__pycache__"}
+CST = timezone(timedelta(hours=8))
 
 
-def should_exclude(file_path: Path) -> bool:
+def should_exclude_problem_file(file_path: Path) -> bool:
+    """Return True when a Python file is infrastructure instead of a solution."""
     if file_path.parent == ROOT:
         return True
     if file_path.name in ROOT_EXCLUDE:
         return True
-    for kw in EXCLUDE_KEYWORDS:
-        if kw in file_path.name.lower():
-            return True
-    return False
+    lowered = str(file_path).lower()
+    return any(keyword in lowered for keyword in EXCLUDE_KEYWORDS)
 
 
-def count_problems() -> dict:
-    result = {}
+def should_exclude_history_path(raw_path: str) -> bool:
+    path = Path(raw_path.strip('"').strip("'"))
+    if path.suffix != ".py":
+        return True
+    if len(path.parts) <= 1:
+        return True
+    if path.name in ROOT_EXCLUDE:
+        return True
+    lowered = raw_path.lower()
+    return any(keyword in lowered for keyword in EXCLUDE_KEYWORDS)
+
+
+def count_problems() -> dict[str, dict[str, int]]:
+    result: dict[str, dict[str, int]] = {}
     for folder, label in TRACK.items():
-        path = ROOT / folder
-        if not path.exists():
+        root = ROOT / folder
+        if not root.exists():
             continue
-        cats, total = {}, 0
-        for sub in sorted(path.iterdir()):
-            if not sub.is_dir():
+
+        categories: dict[str, int] = {}
+        total = 0
+        for subdir in sorted(root.iterdir(), key=lambda item: item.name):
+            if not subdir.is_dir():
                 continue
-            py_files = [f for f in sub.rglob("*.py") if not should_exclude(f)]
-            n = len(py_files)
-            if n > 0:
-                cats[sub.name] = n
-                total += n
-        cats["_total"] = total
-        result[label] = cats
+            files = [
+                file
+                for file in subdir.rglob("*.py")
+                if not should_exclude_problem_file(file)
+            ]
+            if files:
+                categories[subdir.name] = len(files)
+                total += len(files)
+
+        categories["_total"] = total
+        result[label] = categories
     return result
 
 
-def get_git_history(days=365) -> dict:
+def run_git(args: list[str]) -> str:
+    return subprocess.check_output(args, cwd=ROOT, encoding="utf-8", errors="replace")
+
+
+def get_git_history(days: int = 420) -> dict[str, dict[str, object]]:
     try:
-        out = subprocess.check_output(
-            ["git", "-c", "core.quotepath=false", "log",
-             "--format=@@%ad", "--date=short", "--name-only",
-             f"--since={days} days ago"],
-            cwd=ROOT, encoding="utf-8")
+        out = run_git(
+            [
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "log",
+                "--format=@@%ad",
+                "--date=short",
+                "--name-only",
+                f"--since={days} days ago",
+            ]
+        )
     except Exception:
         return {}
-    day_data = defaultdict(lambda: {"commits": 0, "files": set()})
-    cur = ""
-    for line in out.strip().splitlines():
-        if not line: continue
-        if line.startswith("@@"):
-            cur = line[2:].strip()
-            day_data[cur]["commits"] += 1
+
+    day_data: dict[str, dict[str, object]] = defaultdict(
+        lambda: {"commits": 0, "files": set()}
+    )
+    current_day = ""
+    for line in out.splitlines():
+        if not line:
             continue
-        if not line.endswith(".py"): continue
-        fname = Path(line.strip('"').strip("'")).name
-        if fname in ROOT_EXCLUDE: continue
-        if any(kw in fname.lower() for kw in EXCLUDE_KEYWORDS): continue
-        day_data[cur]["files"].add(fname)
-    result = {}
+        if line.startswith("@@"):
+            current_day = line[2:].strip()
+            day_data[current_day]["commits"] = int(day_data[current_day]["commits"]) + 1
+            continue
+        if not current_day or should_exclude_history_path(line):
+            continue
+        day_data[current_day]["files"].add(line.strip('"').strip("'"))
+
+    result: dict[str, dict[str, object]] = {}
     for day, data in day_data.items():
-        result[day] = {"commits": data["commits"], "files": len(data["files"]),
-                       "filenames": sorted(data["files"])}
+        files = sorted(data["files"])
+        result[day] = {
+            "commits": data["commits"],
+            "files": len(files),
+            "filenames": files,
+        }
     return result
 
 
 def get_first_commit_date() -> str:
     try:
-        out = subprocess.check_output(
-            ["git", "log", "--reverse", "--format=%ad", "--date=short"],
-            cwd=ROOT, encoding="utf-8")
-        return out.strip().splitlines()[0] if out.strip() else ""
-    except:
+        out = run_git(["git", "log", "--reverse", "--format=%ad", "--date=short"])
+    except Exception:
         return ""
+    lines = [line.strip() for line in out.splitlines() if line.strip()]
+    return lines[0] if lines else ""
 
 
-def build_html(counts: dict, history: dict) -> str:
-    grand = sum(c["_total"] for c in counts.values())
-    updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    first = get_first_commit_date()
+def get_total_commit_count() -> int:
+    try:
+        return int(run_git(["git", "rev-list", "--count", "HEAD"]).strip())
+    except Exception:
+        return 0
 
-    platforms = [{"name": l, "total": c["_total"],
-                  "subdirs": {k: v for k, v in c.items() if k != "_total"}}
-                 for l, c in counts.items()]
 
-    recent_days = sorted(history.items(), reverse=True)[:14]
-    recent = [{"date": d, "commits": h["commits"], "files": h["files"],
-               "filenames": h["filenames"]} for d, h in recent_days]
-    total_commits = sum(h["commits"] for h in history.values())
+def parse_day(value: str) -> date | None:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
 
-    # Heatmap data: map date->files for JS
-    heatmap_data = {date: info["files"] for date, info in history.items()}
 
-    # Range: from 2 months before first commit, Sunday-aligned
-    if first:
-        fc = datetime.strptime(first, "%Y-%m-%d")
-    else:
-        fc = datetime.now()
-    start = (fc.replace(day=1) - timedelta(days=30))
-    start = start - timedelta(days=start.weekday() + 1)  # align to Monday
-    range_start = start.strftime("%Y-%m-%d")
+def streaks(active_days: set[str], today: date) -> tuple[int, int]:
+    current = 0
+    cursor = today
+    while cursor.isoformat() in active_days:
+        current += 1
+        cursor -= timedelta(days=1)
 
-    data_json = json.dumps({
-        "grandTotal": grand,
+    longest = 0
+    running = 0
+    previous: date | None = None
+    for raw_day in sorted(active_days):
+        day = parse_day(raw_day)
+        if not day:
+            continue
+        if previous and day == previous + timedelta(days=1):
+            running += 1
+        else:
+            running = 1
+        longest = max(longest, running)
+        previous = day
+    return current, longest
+
+
+def build_payload(counts: dict[str, dict[str, int]], history: dict[str, dict[str, object]]) -> dict[str, object]:
+    now = datetime.now(CST)
+    today = now.date()
+    first_commit = get_first_commit_date()
+    first_day = parse_day(first_commit) or today
+    early_context = first_day - timedelta(days=28)
+    six_month_window = today - timedelta(days=182)
+    range_start = max(min(early_context, six_month_window), today - timedelta(days=371))
+
+    platforms = []
+    for label, categories in counts.items():
+        subdirs = [
+            {"name": name, "count": count}
+            for name, count in sorted(
+                categories.items(), key=lambda item: (-item[1], item[0])
+            )
+            if name != "_total"
+        ]
+        platforms.append(
+            {
+                "name": label,
+                "total": categories.get("_total", 0),
+                "subdirs": subdirs,
+            }
+        )
+
+    grand_total = sum(platform["total"] for platform in platforms)
+    active_days = {
+        day for day, info in history.items() if int(info.get("files", 0)) > 0
+    }
+    current_streak, longest_streak = streaks(active_days, today)
+    recent = [
+        {
+            "date": day,
+            "commits": info["commits"],
+            "files": info["files"],
+            "filenames": info["filenames"],
+        }
+        for day, info in sorted(history.items(), reverse=True)
+        if int(info.get("files", 0)) > 0
+    ][:12]
+    best_day = max(
+        recent,
+        key=lambda item: int(item["files"]),
+        default={"date": "", "files": 0, "commits": 0, "filenames": []},
+    )
+
+    today_key = today.isoformat()
+    heatmap = {
+        day: {"files": info["files"], "commits": info["commits"]}
+        for day, info in history.items()
+    }
+
+    return {
+        "summary": {
+            "grandTotal": grand_total,
+            "totalCommits": get_total_commit_count(),
+            "activeDays": len(active_days),
+            "currentStreak": current_streak,
+            "longestStreak": longest_streak,
+            "todayFiles": int(history.get(today_key, {}).get("files", 0)),
+            "latestDay": recent[0] if recent else None,
+            "bestDay": best_day,
+        },
         "platforms": platforms,
         "recent": recent,
-        "totalCommits": total_commits,
-        "firstCommit": first,
-        "updatedAt": updated,
-        "heatmapData": heatmap_data,
-        "rangeStart": range_start,
-    }, ensure_ascii=False)
+        "heatmap": heatmap,
+        "firstCommit": first_commit,
+        "today": today_key,
+        "rangeStart": range_start.isoformat(),
+        "updatedAt": now.strftime("%Y-%m-%d %H:%M CST"),
+        "repoUrl": "https://github.com/ZoomWaterr/python-algo-practice",
+    }
 
-    return HTML_TEMPLATE.format(data_json=data_json)
+
+def build_html(payload: dict[str, object]) -> str:
+    data_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    data_json = data_json.replace("</", "<\\/")
+    return HTML_TEMPLATE.replace("__DASHBOARD_DATA__", data_json)
 
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
@@ -130,347 +257,896 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>刷题面板 · ZoomWaterr</title>
+<title>ZoomWaterr 刷题面板</title>
 <style>
-  :root {{
-    --bg: #faf7f2;
-    --card: #fffcf8;
-    --border: #ede4d8;
-    --text: #3d322b;
-    --muted: #8c7b6e;
-    --accent: #c8956c;
-    --green: #40a578;
-    --blue: #5b8fb4;
-    --purple: #a080b4;
-    --orange: #d4a058;
-    --shadow: 0 2px 12px rgba(180,160,140,0.10);
-    --shadow-lg: 0 4px 24px rgba(180,160,140,0.14);
-    --gh-0: #ebedf0;
-    --gh-1: #c6e48b;
-    --gh-2: #7bc96f;
-    --gh-3: #239a3b;
-    --gh-4: #196127;
-  }}
-  * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{
-    background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  :root {
+    color-scheme: light;
+    --bg: #f5f8f4;
+    --paper: #fffef9;
+    --paper-strong: #fdfbf2;
+    --ink: #1d2420;
+    --muted: #657168;
+    --faint: #8a968e;
+    --line: #dfe8dc;
+    --line-strong: #c9d7cc;
+    --green: #227a55;
+    --green-soft: #dff0df;
+    --blue: #3f6f99;
+    --amber: #b56e21;
+    --rose: #a94f5d;
+    --shadow: 0 18px 50px rgba(35, 65, 48, 0.08);
+    --cell: 13px;
+    --gap: 4px;
+    --h0: #e8eee7;
+    --h1: #bfe3bf;
+    --h2: #76c884;
+    --h3: #2f965f;
+    --h4: #155f3d;
+  }
+
+  * { box-sizing: border-box; }
+  html { min-width: 0; }
+  body {
+    margin: 0;
     min-height: 100vh;
-  }}
-  .container {{ max-width: 860px; margin: 0 auto; padding: 32px 20px; }}
+    background:
+      linear-gradient(180deg, rgba(255, 254, 249, 0.9), rgba(245, 248, 244, 0.95) 260px),
+      var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: 0;
+  }
+  a { color: inherit; }
+  .shell {
+    width: min(1180px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 28px 0 34px;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .brand-mark {
+    width: 46px;
+    height: 46px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: var(--paper);
+    box-shadow: inset 0 0 0 4px rgba(34, 122, 85, 0.05);
+    color: var(--green);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-weight: 800;
+  }
+  .brand-title {
+    display: block;
+    font-size: 18px;
+    font-weight: 780;
+    line-height: 1.1;
+  }
+  .brand-subtitle {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .repo-link {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 13px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 8px 18px rgba(35, 65, 48, 0.05);
+    transition: transform 180ms ease, border-color 180ms ease;
+  }
+  .repo-link:hover { transform: translateY(-1px); border-color: var(--green); }
+  .repo-link:active { transform: translateY(0); }
+  .repo-link svg { width: 16px; height: 16px; }
 
-  .header {{ display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }}
-  .avatar {{
-    width: 52px; height: 52px; border-radius: 50%;
-    background: linear-gradient(135deg, #c8956c, #e8c4a0);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px; font-weight: 900; color: #fff; flex-shrink: 0;
-  }}
-  .header h1 {{ font-size: 22px; font-weight: 700; }}
-  .header .sub {{ color: var(--muted); font-size: 13px; }}
-
-  .bookmark-hint {{
-    background: linear-gradient(135deg, #fef9f0, #fdf5e6);
-    border: 1px solid #e8d5c4; border-radius: 8px;
-    padding: 10px 16px; margin-bottom: 24px; font-size: 12px; color: var(--muted);
-    display: flex; align-items: center; gap: 8px;
-  }}
-  .bookmark-hint strong {{ color: var(--accent); }}
-
-  .cards {{
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 10px; margin-bottom: 24px;
-  }}
-  .card {{
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 18px 14px; text-align: center;
-    box-shadow: var(--shadow); transition: transform 0.15s;
-  }}
-  .card:hover {{ transform: translateY(-2px); box-shadow: var(--shadow-lg); }}
-  .card .num {{ font-size: 30px; font-weight: 800; line-height: 1.1; color: var(--accent); }}
-  .card:nth-child(2) .num {{ color: var(--blue); }}
-  .card:nth-child(3) .num {{ color: var(--purple); }}
-  .card:nth-child(4) .num {{ color: var(--orange); }}
-  .card:nth-child(5) .num {{ color: var(--green); }}
-  .card .label {{ color: var(--muted); font-size: 12px; margin-top: 4px; }}
-
-  .section-title {{ font-size: 15px; font-weight: 600; margin-bottom: 14px; color: var(--text); }}
-  .panel {{
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 20px; margin-bottom: 20px;
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(310px, 0.8fr);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 18px;
+  }
+  .hero-main,
+  .pulse {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
     box-shadow: var(--shadow);
-  }}
+    min-width: 0;
+  }
+  .hero-main {
+    padding: 26px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 246px;
+  }
+  .eyebrow {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 8px;
+    color: var(--green);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 5px rgba(34, 122, 85, 0.1);
+  }
+  h1 {
+    margin: 15px 0 12px;
+    max-width: 720px;
+    font-size: 38px;
+    line-height: 1.08;
+    letter-spacing: 0;
+  }
+  .lead {
+    margin: 0;
+    max-width: 68ch;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.75;
+  }
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 24px;
+  }
+  .meta-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper-strong);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .meta-pill strong {
+    margin-left: 5px;
+    color: var(--ink);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+  }
+  .pulse {
+    padding: 22px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 18px;
+    overflow: hidden;
+  }
+  .pulse-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .pulse-title {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 750;
+  }
+  .pulse-date {
+    color: var(--faint);
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  }
+  .pulse-number {
+    align-self: center;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 86px;
+    line-height: 0.9;
+    font-weight: 850;
+    color: var(--green);
+    font-variant-numeric: tabular-nums;
+  }
+  .pulse-foot {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .mini-stat {
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+  .mini-stat span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .mini-stat strong {
+    display: block;
+    margin-top: 4px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 19px;
+    font-variant-numeric: tabular-nums;
+  }
 
-  /* ── GitHub Pixel-Perfect Heatmap ── */
-  .gh-calendar {{
-    display: inline-block; overflow-x: auto; max-width: 100%;
-  }}
-  .gh-calendar table {{
-    border-collapse: separate; border-spacing: 3px;
-  }}
-  .gh-calendar td {{
-    width: 12px; height: 12px; border-radius: 2px;
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .stat-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    padding: 16px 14px;
+    min-height: 96px;
+  }
+  .stat-label {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .stat-value {
+    margin-top: 12px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 29px;
+    line-height: 1;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-card:nth-child(2) .stat-value { color: var(--blue); }
+  .stat-card:nth-child(3) .stat-value { color: var(--amber); }
+  .stat-card:nth-child(4) .stat-value { color: var(--rose); }
+  .stat-card:nth-child(5) .stat-value { color: var(--green); }
+
+  .content-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.8fr);
+    gap: 18px;
+    align-items: start;
+  }
+  .content-grid > * {
+    min-width: 0;
+  }
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    box-shadow: 0 12px 34px rgba(35, 65, 48, 0.06);
+    min-width: 0;
+  }
+  .panel + .panel { margin-top: 18px; }
+  .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px 20px 0;
+  }
+  .panel-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .panel-note {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: right;
+  }
+  .panel-body { padding: 18px 20px 20px; }
+
+  .heatmap-wrap {
+    overflow-x: auto;
+    padding-bottom: 4px;
+    width: 100%;
+  }
+  .heatmap {
+    width: max-content;
+    min-width: 100%;
+  }
+  .month-row {
+    display: grid;
+    grid-template-columns: repeat(var(--weeks), var(--cell));
+    gap: var(--gap);
+    margin-left: 26px;
+    margin-bottom: 7px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1;
+  }
+  .month-label {
+    min-width: var(--cell);
+    white-space: nowrap;
+  }
+  .heatmap-body {
+    display: grid;
+    grid-template-columns: 18px auto;
+    gap: 8px;
+    align-items: start;
+  }
+  .day-labels {
+    display: grid;
+    grid-template-rows: repeat(7, var(--cell));
+    gap: var(--gap);
+    color: var(--muted);
+    font-size: 11px;
+    line-height: var(--cell);
+  }
+  .day-labels span:nth-child(even) { color: transparent; }
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--weeks), var(--cell));
+    grid-auto-flow: column;
+    gap: var(--gap);
+  }
+  .week {
+    display: grid;
+    grid-template-rows: repeat(7, var(--cell));
+    gap: var(--gap);
+  }
+  .cell {
+    width: var(--cell);
+    height: var(--cell);
+    border-radius: 3px;
+    background: var(--h0);
+    border: 1px solid rgba(31, 53, 39, 0.05);
     position: relative;
-  }}
-  .gh-calendar .gh-cell:hover {{ outline: 2px solid rgba(0,0,0,0.3); outline-offset: -1px; }}
-  .gh-calendar .gh-month {{
-    font-size: 11px; color: var(--muted); text-align: left;
-    padding-bottom: 2px; height: 16px; background: none;
-  }}
-  .gh-calendar .gh-day {{
-    font-size: 10px; color: var(--muted); text-align: left;
-    padding-right: 4px; width: 24px; background: none;
-  }}
-  .gh-calendar .gh-cell.l0 {{ background: var(--gh-0); }}
-  .gh-calendar .gh-cell.l1 {{ background: var(--gh-1); }}
-  .gh-calendar .gh-cell.l2 {{ background: var(--gh-2); }}
-  .gh-calendar .gh-cell.l3 {{ background: var(--gh-3); }}
-  .gh-calendar .gh-cell.l4 {{ background: var(--gh-4); }}
-  .gh-calendar .gh-cell[data-tip]:hover::after {{
+  }
+  .cell.h1 { background: var(--h1); }
+  .cell.h2 { background: var(--h2); }
+  .cell.h3 { background: var(--h3); }
+  .cell.h4 { background: var(--h4); }
+  .cell.future {
+    background: transparent;
+    border-color: transparent;
+  }
+  .cell:not(.future):hover {
+    outline: 2px solid rgba(29, 36, 32, 0.44);
+    outline-offset: 1px;
+  }
+  .cell[data-tip]:hover::after {
     content: attr(data-tip);
-    position: absolute; bottom: calc(100% + 8px); left: 50%;
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 9px);
     transform: translateX(-50%);
-    background: #3d322b; color: #fff;
-    padding: 5px 10px; border-radius: 6px; font-size: 11px;
-    white-space: nowrap; pointer-events: none; z-index: 100;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  }}
-  .gh-legend {{
-    display: flex; align-items: center; gap: 3px; margin-top: 10px;
-    justify-content: flex-end; font-size: 11px; color: var(--muted);
-  }}
-  .gh-legend .dot {{ width: 12px; height: 12px; border-radius: 2px; display: inline-block; }}
+    z-index: 4;
+    width: max-content;
+    max-width: 260px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    background: #1f2923;
+    color: #f7fbf5;
+    font-size: 12px;
+    line-height: 1.3;
+    box-shadow: 0 12px 26px rgba(31, 41, 35, 0.22);
+    pointer-events: none;
+  }
+  .legend {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .legend span:not(.legend-label) {
+    width: var(--cell);
+    height: var(--cell);
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .legend .h0 { background: var(--h0); }
+  .legend .h1 { background: var(--h1); }
+  .legend .h2 { background: var(--h2); }
+  .legend .h3 { background: var(--h3); }
+  .legend .h4 { background: var(--h4); }
 
-  .platform-row {{ display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }}
-  .platform-row:last-child {{ margin-bottom: 0; }}
-  .platform-name {{ width: 60px; text-align: right; font-weight: 600; font-size: 13px; flex-shrink: 0; }}
-  .platform-bar-wrap {{ flex: 1; height: 24px; background: var(--bg); border-radius: 5px; overflow: hidden; }}
-  .platform-bar {{
-    height: 100%; border-radius: 5px; display: flex; align-items: center;
-    padding-left: 10px; font-size: 12px; font-weight: 700;
-    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
-  }}
-  .platform-bar.lg {{ background: linear-gradient(90deg, #7bc96f, #40a578); color: #fff; }}
-  .platform-bar.cl {{ background: linear-gradient(90deg, #7bb4e0, #5b8fb4); color: #fff; }}
-  .platform-bar.lq {{ background: linear-gradient(90deg, #c4a0d8, #a080b4); color: #fff; }}
-  .subdirs {{ margin-left: 72px; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 5px; }}
-  .subdir-tag {{
-    background: var(--bg); color: var(--muted);
-    padding: 1px 9px; border-radius: 10px; font-size: 11px; border: 1px solid var(--border);
-  }}
+  .platforms {
+    display: grid;
+    gap: 16px;
+  }
+  .platform-row {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr) 44px;
+    gap: 12px;
+    align-items: center;
+  }
+  .platform-name {
+    font-size: 13px;
+    font-weight: 800;
+    text-align: right;
+  }
+  .bar-track {
+    height: 28px;
+    border-radius: 999px;
+    background: #edf3ec;
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .bar-fill {
+    width: var(--pct);
+    min-width: 28px;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--green);
+    transition: width 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .platform-row:nth-child(2) .bar-fill { background: var(--blue); }
+  .platform-row:nth-child(3) .bar-fill { background: var(--amber); }
+  .platform-count {
+    color: var(--ink);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .subdir-list {
+    grid-column: 2 / 4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: -7px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 25px;
+    padding: 0 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper-strong);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .tag strong {
+    color: var(--ink);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+  }
 
-  .activity-item {{
-    display: flex; align-items: flex-start; gap: 12px;
-    padding: 9px 0; border-bottom: 1px solid #f0ebe0;
-  }}
-  .activity-item:last-child {{ border-bottom: none; }}
-  .act-date {{ font-size: 12px; color: var(--muted); flex-shrink: 0; width: 48px; }}
-  .act-dot {{ width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }}
-  .act-dot.big {{ background: var(--green); box-shadow: 0 0 6px rgba(64,165,120,0.5); }}
-  .act-dot.medium {{ background: var(--blue); }}
-  .act-dot.small {{ background: var(--purple); }}
-  .act-files {{ font-size: 13px; color: var(--text); line-height: 1.5; }}
-  .act-count {{ font-weight: 700; color: var(--green); }}
-  .act-fname {{ color: var(--muted); font-size: 11px; margin-left: 4px; }}
+  .activity {
+    display: grid;
+  }
+  .activity-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid var(--line);
+  }
+  .activity-row:first-child { border-top: 0; padding-top: 0; }
+  .activity-date {
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .activity-main {
+    min-width: 0;
+  }
+  .activity-title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: baseline;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .activity-title span {
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .file-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 9px;
+  }
+  .file-pill {
+    max-width: 100%;
+    min-height: 25px;
+    padding: 4px 8px;
+    border-radius: 7px;
+    background: #eef4ef;
+    color: #33443a;
+    font-size: 12px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .empty {
+    padding: 18px 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .footer {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+  }
 
-  .footer {{
-    text-align: center; color: var(--muted); font-size: 11px;
-    padding: 20px 0; border-top: 1px solid var(--border); margin-top: 6px;
-  }}
-  .footer a {{ color: var(--accent); text-decoration: none; }}
-  .footer a:hover {{ text-decoration: underline; }}
-
-  @media (max-width: 640px) {{
-    .cards {{ grid-template-columns: repeat(3, 1fr); }}
-  }}
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  @media (max-width: 940px) {
+    .hero,
+    .content-grid {
+      grid-template-columns: 1fr;
+    }
+    .stats-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .shell {
+      width: min(100% - 22px, 1180px);
+      padding-top: 16px;
+    }
+    .topbar {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .repo-link {
+      width: 100%;
+      justify-content: center;
+    }
+    .brand-subtitle {
+      white-space: normal;
+    }
+    h1 {
+      font-size: 30px;
+    }
+    .hero-main,
+    .pulse,
+    .panel-body,
+    .panel-head {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+    .pulse-number {
+      font-size: 66px;
+    }
+    .stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .platform-row {
+      grid-template-columns: 1fr 54px;
+      gap: 8px;
+    }
+    .platform-name {
+      grid-column: 1 / 3;
+      text-align: left;
+    }
+    .subdir-list {
+      grid-column: 1 / 3;
+    }
+    .activity-row {
+      grid-template-columns: 1fr;
+      gap: 7px;
+    }
+  }
 </style>
 </head>
 <body>
-<div class="container">
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">ZW</div>
+      <div>
+        <span class="brand-title">ZoomWaterr 刷题面板</span>
+        <span class="brand-subtitle">Python 算法练习记录，按 push 自动更新</span>
+      </div>
+    </div>
+    <a class="repo-link" id="repo-link" href="#" aria-label="打开 GitHub 仓库">
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M6.5 3.5H4.2A2.2 2.2 0 0 0 2 5.7v6.1A2.2 2.2 0 0 0 4.2 14h6.1a2.2 2.2 0 0 0 2.2-2.2V9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M9 2h5v5M8.4 7.6 13.7 2.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      GitHub
+    </a>
+  </header>
 
-  <div class="header">
-    <div class="avatar">ZT</div>
+  <section class="hero" aria-labelledby="dashboard-title">
+    <div class="hero-main">
+      <div>
+        <span class="eyebrow">practice dashboard</span>
+        <h1 id="dashboard-title">把刷题轨迹变成一张可以每天回看的地图。</h1>
+        <p class="lead">统计来自仓库里的题解文件和 git 历史。热力图按每天新增或修改的题目数上色，平台分布按目录实时汇总。</p>
+      </div>
+      <div class="hero-meta" id="hero-meta"></div>
+    </div>
+    <aside class="pulse" aria-label="今日刷题摘要">
+      <div class="pulse-head">
+        <p class="pulse-title">今日题目变动</p>
+        <span class="pulse-date" id="today-label"></span>
+      </div>
+      <div class="pulse-number" id="today-files">0</div>
+      <div class="pulse-foot">
+        <div class="mini-stat"><span>当前连续</span><strong id="current-streak">0 天</strong></div>
+        <div class="mini-stat"><span>最长连续</span><strong id="longest-streak">0 天</strong></div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="stats-grid" id="stats-grid" aria-label="刷题统计"></section>
+
+  <main class="content-grid">
     <div>
-      <h1>Python 算法刷题面板</h1>
-      <div class="sub">ZoomWaterr · 从零到百题，每天进步一点点</div>
+      <section class="panel" aria-labelledby="heatmap-title">
+        <div class="panel-head">
+          <h2 class="panel-title" id="heatmap-title">刷题热力图</h2>
+          <span class="panel-note" id="heatmap-note"></span>
+        </div>
+        <div class="panel-body">
+          <div class="heatmap-wrap">
+            <div class="heatmap" id="heatmap"></div>
+          </div>
+          <div class="legend" aria-label="热力图颜色图例">
+            <span class="legend-label">少</span>
+            <span class="h0"></span><span class="h1"></span><span class="h2"></span><span class="h3"></span><span class="h4"></span>
+            <span class="legend-label">多</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="activity-title">
+        <div class="panel-head">
+          <h2 class="panel-title" id="activity-title">最近活动</h2>
+          <span class="panel-note">只显示题解文件</span>
+        </div>
+        <div class="panel-body">
+          <div class="activity" id="activity"></div>
+        </div>
+      </section>
     </div>
-  </div>
 
-  <div class="bookmark-hint">
-    📌 收藏本页 <strong>Ctrl+D</strong>，每次打开即最新数据
-  </div>
+    <aside>
+      <section class="panel" aria-labelledby="platform-title">
+        <div class="panel-head">
+          <h2 class="panel-title" id="platform-title">平台分布</h2>
+          <span class="panel-note">按目录扫描</span>
+        </div>
+        <div class="panel-body">
+          <div class="platforms" id="platforms"></div>
+        </div>
+      </section>
+    </aside>
+  </main>
 
-  <div class="cards" id="cards"></div>
-
-  <div class="panel">
-    <div class="section-title">📅 刷题热力图</div>
-    <div class="gh-calendar" id="gh-calendar"></div>
-    <div class="gh-legend">
-      少
-      <span class="dot l0"></span><span class="dot l1"></span>
-      <span class="dot l2"></span><span class="dot l3"></span>
-      <span class="dot l4"></span>
-      多
-    </div>
-  </div>
-
-  <div class="panel">
-    <div class="section-title">📊 平台分布</div>
-    <div id="platforms"></div>
-  </div>
-
-  <div class="panel">
-    <div class="section-title">🔥 最近活动</div>
-    <div id="activity"></div>
-  </div>
-
-  <div class="footer" id="footer"></div>
-
+  <footer class="footer" id="footer"></footer>
 </div>
 
+<script type="application/json" id="dashboard-data">__DASHBOARD_DATA__</script>
 <script>
-(function() {{
-const DATA = {data_json};
+(() => {
+  const DATA = JSON.parse(document.getElementById("dashboard-data").textContent);
+  const summary = DATA.summary;
 
-// ── Stat Cards ──
-document.getElementById('cards').innerHTML = `
-  <div class="card"><div class="num">${{DATA.grandTotal}}</div><div class="label">总题数</div></div>
-  ${{DATA.platforms.map(p => `<div class="card"><div class="num">${{p.total}}</div><div class="label">${{p.name}}</div></div>`).join('')}}
-  <div class="card"><div class="num">${{DATA.totalCommits}}</div><div class="label">总提交</div></div>
-`;
+  const escapeHtml = (value) => String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 
-// ── GitHub Pixel-Perfect Heatmap ──
-function level(files) {{
-  if (files === 0) return 0;
-  if (files <= 2) return 1;
-  if (files <= 5) return 2;
-  if (files <= 10) return 3;
-  return 4;
-}}
+  const parseDate = (value) => {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
 
-function buildHeatmap() {{
-  const container = document.getElementById('gh-calendar');
-  const data = DATA.heatmapData;
-  const today = new Date(); today.setHours(0,0,0,0);
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
-  // Start date: Monday of the week containing rangeStart
-  const start = new Date(DATA.rangeStart + 'T00:00:00');
-  start.setDate(start.getDate() - start.getDay() + 1); // Monday
+  const addDays = (date, count) => {
+    const copy = new Date(date);
+    copy.setDate(copy.getDate() + count);
+    return copy;
+  };
 
-  // End date: today
-  const totalDays = Math.ceil((today - start) / 86400000) + 1;
-  const numWeeks = Math.ceil(totalDays / 7);
+  const monthName = (date) => `${date.getMonth() + 1}月`;
+  const level = (files) => {
+    if (!files) return 0;
+    if (files <= 2) return 1;
+    if (files <= 6) return 2;
+    if (files <= 12) return 3;
+    return 4;
+  };
 
-  // Day labels (Mon, Wed, Fri)
-  const dayNames = ['Mon', '', 'Wed', '', 'Fri', '', ''];
+  document.getElementById("repo-link").href = DATA.repoUrl;
+  document.getElementById("today-label").textContent = DATA.today;
+  document.getElementById("today-files").textContent = summary.todayFiles;
+  document.getElementById("current-streak").textContent = `${summary.currentStreak} 天`;
+  document.getElementById("longest-streak").textContent = `${summary.longestStreak} 天`;
 
-  let html = '<table><tbody>';
+  const latest = summary.latestDay;
+  const best = summary.bestDay || {};
+  document.getElementById("hero-meta").innerHTML = [
+    ["首次提交", DATA.firstCommit || "暂无"],
+    ["最近活跃", latest ? latest.date : "暂无"],
+    ["单日最高", best.date ? `${best.files} 题` : "暂无"],
+    ["更新时间", DATA.updatedAt],
+  ].map(([label, value]) => `<span class="meta-pill">${label}<strong>${escapeHtml(value)}</strong></span>`).join("");
 
-  // Month label row
-  html += '<tr>';
-  html += '<td class="gh-month"></td>';
-  let lastMonth = -1;
-  for (let w = 0; w < numWeeks; w++) {{
-    const d = new Date(start);
-    d.setDate(d.getDate() + w * 7);
-    if (d.getMonth() !== lastMonth && d.getDate() <= 7) {{
-      html += `<td class="gh-month">${{d.getMonth()+1}}月</td>`;
-      lastMonth = d.getMonth();
-    }} else {{
-      html += '<td class="gh-month"></td>';
-    }}
-  }}
-  html += '</tr>';
+  const statItems = [
+    ["总题数", summary.grandTotal],
+    ["总提交", summary.totalCommits],
+    ["活跃天", summary.activeDays],
+    ["当前连续", summary.currentStreak],
+    ["最长连续", summary.longestStreak],
+  ];
+  document.getElementById("stats-grid").innerHTML = statItems.map(([label, value]) => `
+    <article class="stat-card">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${value}</div>
+    </article>
+  `).join("");
 
-  // 7 rows (Mon-Sun)
-  for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {{
-    html += '<tr>';
-    html += `<td class="gh-day">${{dayNames[dayOfWeek]}}</td>`;
-    for (let w = 0; w < numWeeks; w++) {{
-      const d = new Date(start);
-      d.setDate(d.getDate() + w * 7 + dayOfWeek);
-      const dateStr = d.toISOString().slice(0, 10);
-      const isFuture = d > today;
+  function renderHeatmap() {
+    const start = parseDate(DATA.rangeStart);
+    const today = parseDate(DATA.today);
+    const startOffset = (start.getDay() + 6) % 7;
+    const alignedStart = addDays(start, -startOffset);
+    const totalDays = Math.round((today - alignedStart) / 86400000) + 1;
+    const weeks = Math.max(1, Math.ceil(totalDays / 7));
+    const heatmap = DATA.heatmap || {};
+    let monthHtml = "";
+    let lastMonth = -1;
+    let weekHtml = "";
 
-      if (isFuture) {{
-        html += '<td></td>';
-      }} else {{
-        const files = data[dateStr] || 0;
-        const lvl = level(files);
-        let tip = dateStr;
-        if (files > 0) {{
-          tip = `${{dateStr}}: ${{files}} 题`;
-        }} else {{
-          tip = `${{dateStr}}: 无记录`;
-        }}
-        html += `<td class="gh-cell l${{lvl}}" data-tip="${{tip}}"></td>`;
-      }}
-    }}
-    html += '</tr>';
-  }}
-  html += '</tbody></table>';
-  container.innerHTML = html;
-}}
-buildHeatmap();
+    for (let week = 0; week < weeks; week += 1) {
+      const weekStart = addDays(alignedStart, week * 7);
+      const monthChanged = weekStart.getMonth() !== lastMonth;
+      monthHtml += `<span class="month-label">${monthChanged ? monthName(weekStart) : ""}</span>`;
+      if (monthChanged) lastMonth = weekStart.getMonth();
 
-// ── Platform Bars ──
-const maxTotal = Math.max(...DATA.platforms.map(p => p.total), 1);
-document.getElementById('platforms').innerHTML = DATA.platforms.map((pl, i) => {{
-  const pct = Math.max((pl.total / maxTotal * 100).toFixed(0), 8);
-  const cls = ['lg', 'cl', 'lq'][i] || '';
-  const sub = Object.entries(pl.subdirs).length > 0
-    ? `<div class="subdirs">${{Object.entries(pl.subdirs).map(([k,v]) =>
-        `<span class="subdir-tag">${{k}}: ${{v}}题</span>`).join('')}}</div>` : '';
-  return `<div class="platform-row">
-    <span class="platform-name">${{pl.name}}</span>
-    <div class="platform-bar-wrap"><div class="platform-bar ${{cls}}" style="width:${{pct}}%">${{pl.total}} 题</div></div>
-  </div>${{sub}}`;
-}}).join('');
+      let cells = "";
+      for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+        const day = addDays(weekStart, dayIndex);
+        const key = formatDate(day);
+        if (day > today) {
+          cells += '<span class="cell future" aria-hidden="true"></span>';
+          continue;
+        }
+        const item = heatmap[key] || { files: 0, commits: 0 };
+        const files = Number(item.files || 0);
+        const commits = Number(item.commits || 0);
+        const tip = files > 0
+          ? `${key}: ${files} 题, ${commits} 次提交`
+          : `${key}: 无题解变动`;
+        cells += `<span class="cell h${level(files)}" title="${escapeHtml(tip)}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}"></span>`;
+      }
+      weekHtml += `<span class="week">${cells}</span>`;
+    }
 
-// ── Recent Activity ──
-const recent = DATA.recent;
-if (recent.length === 0) {{
-  document.getElementById('activity').innerHTML = '<p style="color:var(--muted);font-size:13px">还没有活动</p>';
-}} else {{
-  document.getElementById('activity').innerHTML = recent.map(item => {{
-    const dotCls = item.files >= 8 ? 'big' : item.files >= 4 ? 'medium' : 'small';
-    const names = (item.filenames || []).slice(0, 4).map(f => `<span class="act-fname">${{f}}</span>`).join('');
-    const more = (item.filenames || []).length > 4
-      ? `<span class="act-fname">+${{item.filenames.length-4}} more</span>` : '';
-    return `<div class="activity-item">
-      <span class="act-date">${{item.date.slice(5)}}</span>
-      <span class="act-dot ${{dotCls}}"></span>
-      <span class="act-files">
-        <span class="act-count">+${{item.files}} 题</span> · ${{item.commits}} 次提交
-        <br>${{names}}${{more}}
-      </span>
-    </div>`;
-  }}).join('');
-}}
+    const activeRange = `${formatDate(alignedStart)} 至 ${DATA.today}`;
+    document.getElementById("heatmap-note").textContent = activeRange;
+    document.getElementById("heatmap").style.setProperty("--weeks", weeks);
+    document.getElementById("heatmap").innerHTML = `
+      <div class="month-row">${monthHtml}</div>
+      <div class="heatmap-body">
+        <div class="day-labels" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+        <div class="week-grid">${weekHtml}</div>
+      </div>
+    `;
+  }
 
-// ── Footer ──
-document.getElementById('footer').innerHTML = `
-  自动生成 · ${{DATA.updatedAt}}
-  ${{DATA.firstCommit ? ' · 始于 ' + DATA.firstCommit : ''}}
-  · <a href="https://github.com/ZoomWaterr/python-algo-practice">GitHub</a>
-  · <a href="#" onclick="navigator.clipboard.writeText(location.href);this.textContent='已复制!';setTimeout(()=>this.textContent='复制链接',1500);return false">复制链接</a>
-`;
+  function renderPlatforms() {
+    const maxTotal = Math.max(...DATA.platforms.map((platform) => platform.total), 1);
+    document.getElementById("platforms").innerHTML = DATA.platforms.map((platform) => {
+      const pct = `${Math.max(8, Math.round((platform.total / maxTotal) * 100))}%`;
+      const subdirs = (platform.subdirs || []).map((subdir) => `
+        <span class="tag">${escapeHtml(subdir.name)}<strong>${subdir.count}</strong></span>
+      `).join("");
+      return `
+        <div class="platform-row">
+          <div class="platform-name">${escapeHtml(platform.name)}</div>
+          <div class="bar-track"><div class="bar-fill" style="--pct:${pct}"></div></div>
+          <div class="platform-count">${platform.total}</div>
+          <div class="subdir-list">${subdirs}</div>
+        </div>
+      `;
+    }).join("");
+  }
 
-}})();
+  function renderActivity() {
+    const recent = DATA.recent || [];
+    if (!recent.length) {
+      document.getElementById("activity").innerHTML = '<div class="empty">还没有题解活动。</div>';
+      return;
+    }
+    document.getElementById("activity").innerHTML = recent.map((item) => {
+      const files = (item.filenames || []).slice(0, 6).map((path) => {
+        const parts = path.split(/[\\/]/);
+        const name = parts[parts.length - 1] || path;
+        return `<span class="file-pill">${escapeHtml(name)}</span>`;
+      }).join("");
+      const more = (item.filenames || []).length > 6
+        ? `<span class="file-pill">还有 ${item.filenames.length - 6} 题</span>`
+        : "";
+      return `
+        <article class="activity-row">
+          <time class="activity-date" datetime="${escapeHtml(item.date)}">${escapeHtml(item.date.slice(5))}</time>
+          <div class="activity-main">
+            <div class="activity-title">${item.files} 题 <span>${item.commits} 次提交</span></div>
+            <div class="file-list">${files}${more}</div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  renderHeatmap();
+  renderPlatforms();
+  renderActivity();
+
+  document.getElementById("footer").innerHTML = `
+    由 <strong>stats_dashboard.py</strong> 生成，GitHub Actions 每次 push 后部署到 Pages。
+    数据范围从 ${escapeHtml(DATA.firstCommit || DATA.rangeStart)} 开始，页面生成时间为 ${escapeHtml(DATA.updatedAt)}。
+  `;
+})();
 </script>
 </body>
-</html>"""
+</html>
+"""
 
 
-def main():
+def main() -> None:
     counts = count_problems()
-    history = get_git_history(days=365)
-    html = build_html(counts, history)
+    history = get_git_history()
+    payload = build_payload(counts, history)
     out = ROOT / "index.html"
-    out.write_text(html, encoding="utf-8")
-    grand = sum(c["_total"] for c in counts.values())
+    out.write_text(build_html(payload), encoding="utf-8")
+
+    summary = payload["summary"]
     print(f"[OK] {out}")
-    print(f"     Total: {grand} | Active days: {len(history)}")
+    print(
+        "     "
+        f"Total: {summary['grandTotal']} | "
+        f"Active days: {summary['activeDays']} | "
+        f"Today: {summary['todayFiles']}"
+    )
 
 
 if __name__ == "__main__":
