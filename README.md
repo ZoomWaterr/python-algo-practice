@@ -1,11 +1,11 @@
 <div align="center">
 
-# PythonCode
+# ZOOM · PythonCode
 
-Python 3.14 算法刷题记录。题解按平台归档，进度由实时面板自动展示。
+Python 3.14 算法题解仓库。
 
 <p>
-  <a href="https://zoomwaterr.github.io/python-algo-practice/"><b>打开实时刷题面板</b></a>
+  <a href="https://zoomwaterr.github.io/python-algo-practice/"><b>实时刷题面板</b></a>
   ·
   <a href="./洛谷/">洛谷</a>
   ·
@@ -15,9 +15,9 @@ Python 3.14 算法刷题记录。题解按平台归档，进度由实时面板�
 </p>
 
 <p>
-  <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-3f6f99?style=for-the-badge&logo=python&logoColor=white">
-  <img alt="Total" src="https://img.shields.io/badge/Problems-108-227a55?style=for-the-badge">
-  <img alt="Pages" src="https://img.shields.io/badge/GitHub%20Pages-Auto%20Dashboard-b56e21?style=for-the-badge&logo=githubpages&logoColor=white">
+  <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-2f6fdd?style=for-the-badge&logo=python&logoColor=white">
+  <img alt="Problems 108" src="https://img.shields.io/badge/Problems-108-2f8f56?style=for-the-badge">
+  <img alt="GitHub Pages" src="https://img.shields.io/badge/GitHub%20Pages-Auto%20Dashboard-e48124?style=for-the-badge&logo=githubpages&logoColor=white">
 </p>
 
 </div>
@@ -34,3 +34,7 @@ Python 3.14 算法刷题记录。题解按平台归档，进度由实时面板�
   </tr>
 </table>
 <!-- /stats -->
+
+## 面板
+
+热力图、平台分布、最近活动和连续记录由 GitHub Pages 展示。每次 push 后自动生成。

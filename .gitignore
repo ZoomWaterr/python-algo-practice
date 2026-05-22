@@ -8,6 +8,7 @@ tempCodeRunnerFile.*
 
 # Python cache
 __pycache__/
+.superpowers/
 *.pyc
 *.pyo
 
