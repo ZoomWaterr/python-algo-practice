@@ -14,7 +14,7 @@ from pathlib import Path
 from collections import defaultdict
 from datetime import datetime, timezone
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.parent
 
 # ── 要统计的平台目录 ──
 TRACK = {

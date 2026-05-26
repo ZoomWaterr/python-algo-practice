@@ -808,7 +808,7 @@
 <main class="page">
   <header class="topbar">
     <section class="identity-frame" aria-label="ZOOM identity">
-      <p class="identity-kicker">personal mark</p>
+      <p class="identity-kicker">键盘在此</p>
       <h2 class="zoom-word">ZOOM <small>ALGO</small></h2>
       <div class="identity-meta">
         <span>Python 3.14</span>
@@ -821,7 +821,7 @@
     <nav class="nav-strip" aria-label="Repository navigation">
       <div class="repo-title">
         PythonCode
-        <span>Python 3.14 算法题解归档。洛谷、C语言网、蓝桥云课。</span>
+        <span>Python 3.14 与 OJ 的爱恨情仇。又名：我为什么每天都在调 BUG。</span>
       </div>
       <div class="nav-links" id="top-links">
         <a href="#heatmap">Dashboard</a>
@@ -831,12 +831,12 @@
 
   <section class="hero">
     <div class="hero-copy">
-      <p class="eyebrow">ZOOM practice system</p>
+      <p class="eyebrow">反正闲着也是闲着</p>
       <h1>PythonCode</h1>
-      <p class="lead">题解、节奏、分布、热力图，一页收拢。保持干净，也保留 ZOOM 的个人标记。</p>
+      <p class="lead">题解、节奏、热力图，一页收拢。代码未必优雅，但面板必须好看。</p>
       <div class="action-row">
         <a class="primary-link" id="repo-link" href="#">查看 GitHub 仓库</a>
-        <a class="text-link" href="#heatmap">看刷题热力图</a>
+        <a class="text-link" href="#heatmap">往下翻，看看有多卷</a>
       </div>
       <div class="badge-row" aria-label="Repository badges">
         <span class="badge">Python</span>
@@ -865,7 +865,7 @@
   <section class="dashboard-grid">
     <article class="panel heat-panel" id="heatmap">
       <div class="panel-head">
-        <h2>刷题热力图</h2>
+        <h2>刷题痕迹（热力图）</h2>
         <span id="heatmap-range"></span>
       </div>
       <div class="panel-body">
@@ -889,39 +889,39 @@
 
     <aside class="panel platform-panel">
       <div class="panel-head">
-        <h2>平台分布</h2>
-        <span>by folder</span>
+        <h2>势力范围</h2>
+        <span>按文件夹</span>
       </div>
       <div class="panel-body platform-list" id="platform-list"></div>
     </aside>
 
     <article class="panel activity-panel">
       <div class="panel-head">
-        <h2>最近活动</h2>
-        <span>solution files</span>
+        <h2>最近搞了什么</h2>
+        <span>提交文件</span>
       </div>
       <div class="panel-body activity-list" id="activity-list"></div>
     </article>
 
     <article class="panel automation-panel">
       <div class="panel-head">
-        <h2>自动化</h2>
-        <span>push to pages</span>
+        <h2>背后默默干活的东西</h2>
+        <span>push → 自动部署</span>
       </div>
       <div class="panel-body">
         <div class="automation-grid">
-          <div class="auto-step"><span></span><strong>目录</strong><em>平台归档</em></div>
-          <div class="auto-step"><span></span><strong>历史</strong><em>日期节奏</em></div>
-          <div class="auto-step"><span></span><strong>页面</strong><em>静态生成</em></div>
-          <div class="auto-step"><span></span><strong>发布</strong><em>Pages</em></div>
+          <div class="auto-step"><span></span><strong>目录</strong><em>扫目录</em></div>
+          <div class="auto-step"><span></span><strong>历史</strong><em>翻 git 历史</em></div>
+          <div class="auto-step"><span></span><strong>页面</strong><em>拼 HTML</em></div>
+          <div class="auto-step"><span></span><strong>上线</strong><em>扔到 GitHub Pages</em></div>
         </div>
       </div>
     </article>
 
     <aside class="panel summary-panel">
       <div class="panel-head">
-        <h2>仓库状态</h2>
-        <span>latest build</span>
+        <h2>体检报告</h2>
+        <span>最近诊断</span>
       </div>
       <div class="panel-body summary-list" id="summary-list"></div>
     </aside>
@@ -971,10 +971,10 @@
   };
 
   const dayPhrase = (days, todayFiles) => {
-    if (todayFiles > 0) return `今天 +${todayFiles} 题，热力图已上色。`;
-    if (days === 0) return "今天暂无新增，热力图保留空白格。";
-    if (days === 1) return "昨天有记录，今天的空白格已补齐。";
-    return `空白 ${days} 天，下一次推送会补齐日期。`;
+    if (todayFiles > 0) return `今天 +${todayFiles} 题，又是不务正业的一天。`;
+    if (days === 0) return "今天摸鱼了，热力图上留了个白洞。";
+    if (days === 1) return "昨天动过笔，今天格子还是白的，懂的都懂。";
+    return `${days} 天没动静了，格子都快长草了。`;
   };
 
   const bestDay = summary.bestDay || {};
@@ -992,18 +992,18 @@
   ].join("");
 
   document.getElementById("mini-ledger").innerHTML = [
-    ["首次提交", DATA.firstActive ? DATA.firstActive.slice(5) : "暂无"],
-    ["最近活跃", latestDay.date ? latestDay.date.slice(5) : "暂无"],
-    ["最佳单日", bestDay.files ? `${bestDay.files} 题` : "暂无"],
-    ["最长连续", `${summary.longestStreak} 天`],
+    ["入坑日期", DATA.firstActive ? DATA.firstActive.slice(5) : "不祥"],
+    ["最后挣扎", latestDay.date ? latestDay.date.slice(5) : "失联中"],
+    ["巅峰时刻", bestDay.files ? `一天肝了 ${bestDay.files} 题` : "还没到来"],
+    ["最长连刷", `${summary.longestStreak} 天`],
   ].map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
 
   const metrics = [
     ["总题数", summary.grandTotal],
-    ["题解提交", summary.solutionCommits],
-    ["活跃天", summary.activeDays],
-    ["当前连续", summary.currentStreak],
-    ["最长连续", summary.longestStreak],
+    ["提交次数", summary.solutionCommits],
+    ["出勤天数", summary.activeDays],
+    ["连刷中", summary.currentStreak],
+    ["最高连刷", summary.longestStreak],
   ];
   document.getElementById("metric-rail").innerHTML = metrics.map(([label, value]) => `
     <div class="metric"><span>${label}</span><strong>${escapeHtml(value)}</strong></div>
@@ -1014,8 +1014,8 @@
       ? `${day} · ${files} 题 · ${commits} 次提交`
       : `${day} · 无新增`;
     document.getElementById("heat-day-copy").textContent = files > 0
-      ? "这一天有题解文件变动。"
-      : "这一天保留为空白格。";
+      ? "这天没摸鱼，代码为证。"
+      : "这天大概在打游戏吧。";
   }
 
   function renderHeatmap() {
@@ -1123,7 +1123,7 @@
   }
 
   function renderSummary() {
-    const status = summary.todayFiles > 0 ? "今日已更新" : "等待下一次提交";
+    const status = summary.todayFiles > 0 ? "活着，今天动过笔" : "陷入沉思（或者摸鱼）";
     document.getElementById("summary-list").innerHTML = [
       ["build", DATA.updatedAt],
       ["range", `${DATA.firstActive || DATA.rangeStart} 至 ${DATA.today}`],

@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.parent
 TRACK = {
     "洛谷": "洛谷",
     "C语言网": "C语言网",
@@ -29,7 +29,7 @@ ROOT_EXCLUDE = {
 }
 EXCLUDE_KEYWORDS = {"temp", "__pycache__"}
 CST = timezone(timedelta(hours=8))
-TEMPLATE_PATH = ROOT / "dashboard_template.html"
+TEMPLATE_PATH = ROOT / "scripts" / "dashboard_template.html"
 
 
 def should_exclude_problem_file(file_path: Path) -> bool:
@@ -164,6 +164,7 @@ def streaks(active_days: set[str], today: date) -> tuple[int, int]:
         longest = max(longest, running)
         previous = day
     return current, longest
+
 
 
 def build_payload(
