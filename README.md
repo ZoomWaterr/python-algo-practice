@@ -27,10 +27,10 @@ Python 3.14 算法题解仓库。
 <!-- stats -->
 <table>
   <tr>
-    <td align="center"><a href="./洛谷/"><b>洛谷</b></a><br><sub>54 题</sub></td>
+    <td align="center"><a href="./洛谷/"><b>洛谷</b></a><br><sub>55 题</sub></td>
     <td align="center"><a href="./C语言网/"><b>C语言网</b></a><br><sub>50 题</sub></td>
     <td align="center"><a href="./蓝桥云课/"><b>蓝桥云课</b></a><br><sub>6 题</sub></td>
-    <td align="center"><b>总计</b><br><sub>110 题</sub></td>
+    <td align="center"><b>总计</b><br><sub>111 题</sub></td>
   </tr>
 </table>
 <!-- /stats -->
